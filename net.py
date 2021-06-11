@@ -11,18 +11,6 @@ from srm_filter_kernel import all_normalized_hpf_list
 # Global covariance pooling
 from MPNCOV import *  # MPNCOV
 
-BATCH_SIZE = 32
-EPOCHS = 100
-LR = 0.01
-WEIGHT_DECAY = 5e-4
-TRAIN_PRINT_FREQUENCY = 100
-EVAL_PRINT_FREQUENCY = 1
-STETSIZE = 14
-scheduler_gama = 0.4
-# DECAY_EPOCH = [30, 60, 90, 140, 200, 250, 300, 350]
-# DECAY_EPOCH = [20, 60, 90, 120, 150, 170, 190]
-DECAY_EPOCH = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190]
-
 
 # Truncation operation
 class TLU(nn.Module):

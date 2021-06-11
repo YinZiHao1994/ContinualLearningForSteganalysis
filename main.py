@@ -31,18 +31,18 @@ from net import SRNet
 from enum import Enum
 
 BATCH_SIZE = 32
-EPOCHS = 200
+EPOCHS = 100
 LR = 0.01
 WEIGHT_DECAY = 5e-4
 TRAIN_PRINT_FREQUENCY = 100
 EVAL_PRINT_FREQUENCY = 1
-STETSIZE = 10
-scheduler_gama = 0.4
+STETSIZE = 14
+scheduler_gama = 0.40
 # DECAY_EPOCH = [30, 60, 90, 140, 200, 250, 300, 350]
 # DECAY_EPOCH = [20, 60, 90, 120, 150, 170, 190]
 DECAY_EPOCH = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190]
-LOG_PATH = './data/log'
-MODEL_EXPORT_PATH = './data/model_export'
+LOG_PATH = 'data/log'
+MODEL_EXPORT_PATH = 'data/model_export'
 DATASET_DIR = r'D:\Work\dataset\steganalysis\BOSSBase'
 
 
@@ -268,8 +268,8 @@ class MyDataset(Dataset):
         cover_path = os.path.join(self.cover_dir, self.cover_list[file_index])
         stego_path = os.path.join(self.stego_dir, self.cover_list[file_index])
 
-        # cover_data = cv2.imread(cover_path, -1)
-        # stego_data = cv2.imread(stego_path, -1)
+        # cover_data = cv2.imread(cover_path, 0)
+        # stego_data = cv2.imread(stego_path, 0)
         cover_data = Image.open(cover_path)  # .convert('RGB')
         stego_data = Image.open(stego_path)  # .convert('RGB')
         # cover_data = np.array(cover_data)
@@ -334,7 +334,7 @@ def main(steganography_enum):
     ])
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        transforms.Normalize((0.5,), (0.5,))
     ])
 
     # Log files
@@ -383,7 +383,7 @@ def main(steganography_enum):
 
     if not os.path.exists(params_path):
         # raise RuntimeError('params_path 不存在')
-        print('params_path 不存在')
+        print('params_path: {} 不存在'.format(params_path))
     else:
         if use_gpu:
             all_state = torch.load(params_path)
@@ -410,12 +410,13 @@ def main(steganography_enum):
     best_acc = 0.0
 
     for epoch in range(startEpoch, EPOCHS + 1):
-        scheduler.step()
+        # scheduler.step()
         train(model, device, train_loader, optimizer, epoch)
         if epoch % EVAL_PRINT_FREQUENCY == 0:
             best_acc, test_loss = evaluate(model, device, valid_loader, epoch, optimizer, best_acc, params_path)
         print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
         # scheduler.step(test_loss)
+        scheduler.step()
     logging.info('\nTest set accuracy: \n')
 
     # Load best network parmater to test
