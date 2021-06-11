@@ -27,7 +27,7 @@ from PIL import Image
 # from srm_filter_kernel import all_normalized_hpf_list
 # Global covariance pooling
 # from MPNCOV import *  # MPNCOV
-from net import SRNet
+from SRNet import SRNet
 from enum import Enum
 
 BATCH_SIZE = 32
