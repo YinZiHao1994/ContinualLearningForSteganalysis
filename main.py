@@ -29,6 +29,7 @@ from PIL import Image
 # from MPNCOV import *  # MPNCOV
 from SRNet import SRNet
 from enum import Enum
+from dataset import MyDataset
 
 BATCH_SIZE = 32
 EPOCHS = 100
@@ -44,6 +45,7 @@ DECAY_EPOCH = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150,
 LOG_PATH = 'data/log'
 MODEL_EXPORT_PATH = 'data/model_export'
 DATASET_DIR = r'D:\Work\dataset\steganalysis\BOSSBase'
+use_gpu = torch.cuda.is_available()
 
 
 class SteganographyEnum(Enum):
@@ -69,7 +71,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def train(model, device, train_loader, optimizer, epoch):
+def train_implement(model, device, train_loader, optimizer, epoch):
     losses = AverageMeter()
     model.train()
     train_loss = 0
@@ -111,6 +113,7 @@ def train(model, device, train_loader, optimizer, epoch):
 
 
 def evaluate(model, device, eval_loader, epoch, optimizer, best_acc, params_path):
+    print('start evaluate')
     model.eval()
     test_loss = 0.0
     correct = 0.0
@@ -119,6 +122,8 @@ def evaluate(model, device, eval_loader, epoch, optimizer, best_acc, params_path
 
     with torch.no_grad():
         for i, sample in enumerate(eval_loader):
+            if i % 10 == 0:
+                print("evaluate in {}/{}".format(i, len(eval_loader)))
             data, label = sample['data'], sample['label']
             shape = list(data.size())
             data = data.reshape(shape[0] * shape[1], *shape[2:])
@@ -152,15 +157,16 @@ def evaluate(model, device, eval_loader, epoch, optimizer, best_acc, params_path
         torch.save(all_state, params_path)
 
     logging.info('-' * 8)
-    logging.info('Test loss: {:.4f}'.format(test_loss / batch_num))
+    test_loss = test_loss / batch_num
+    logging.info('Test loss: {:.4f}'.format(test_loss))
     logging.info('Eval accuracy: {:.4f}'.format(accuracy))
     logging.info('Best accuracy:{:.4f}'.format(best_acc))
     logging.info('-' * 8)
-    return best_acc, test_loss / batch_num
+    return best_acc, test_loss
 
 
 # Initialization
-def initWeights(module):
+def init_weights(module):
     if type(module) == nn.Conv2d:
         if module.weight.requires_grad:
             nn.init.kaiming_normal_(module.weight.data, mode='fan_in', nonlinearity='relu')
@@ -171,7 +177,7 @@ def initWeights(module):
 
 
 # Data augmentation
-class AugData():
+class AugData:
     def __call__(self, sample):
         data, label = sample['data'], sample['label']
 
@@ -188,7 +194,7 @@ class AugData():
         return new_sample
 
 
-class ToTensor():
+class ToTensor:
     def __call__(self, sample):
         data, label = sample['data'], sample['label']
 
@@ -248,62 +254,9 @@ class MyDataset(Dataset):
 '''
 
 
-class MyDataset(Dataset):
-    def __init__(self, dataset_dir, steganography_enum, transform=None):
-        self.transform = transform
-
-        self.cover_dir = os.path.join(dataset_dir, 'BOSSBase_256')
-        # self.stego_dir = DATASET_DIR + '/stego_suniward04'
-        self.stego_dir = os.path.join(dataset_dir, 'BOSSBase_256_' + steganography_enum.name + '04')
-
-        self.cover_list = [x.split('\\')[-1] for x in glob(self.cover_dir + '/*')]
-        assert len(self.cover_list) != 0, "cover_dir is empty"
-
-    def __len__(self):
-        return len(self.cover_list)
-
-    def __getitem__(self, idx):
-        file_index = int(idx)
-
-        cover_path = os.path.join(self.cover_dir, self.cover_list[file_index])
-        stego_path = os.path.join(self.stego_dir, self.cover_list[file_index])
-
-        # cover_data = cv2.imread(cover_path, 0)
-        # stego_data = cv2.imread(stego_path, 0)
-        cover_data = Image.open(cover_path)  # .convert('RGB')
-        stego_data = Image.open(stego_path)  # .convert('RGB')
-        # cover_data = np.array(cover_data)
-        # stego_data = np.array(stego_data)
-
-        # data = np.stack([cover_data, stego_data], ).transpose((0, 3, 1, 2))
-        # print(np.array(cover_data).shape)
-        # data_ = Image.fromarray(data).convert('RGB')
-        label = np.array([0, 1], dtype='uint8')
-        label = torch.from_numpy(label).long()
-        # print(type(data) )
-        # print(type(label) )
-
-        # sample = {'data': data, 'label': label}
-        # print(type(Image.fromarray(data)) )
-
-        if self.transform:
-            cover_data = self.transform(cover_data)
-            stego_data = self.transform(stego_data)
-            # print('cover_data',cover_data.shape)
-        # data = torch.cat((cover_data, stego_data), 0)
-        data = torch.stack((cover_data, stego_data))
-        # print('data', data.shape)
-
-        sample = {'data': data, 'label': label}
-        return sample
-
-
 def setLogger(log_path, mode='a'):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-
-    # if not os.path.exists(log_path):
-    #     os.makedirs(log_path)
 
     if not logger.handlers:
         # Logging to a file
@@ -318,17 +271,80 @@ def setLogger(log_path, mode='a'):
 
 
 def main(steganography_enum):
-    device = torch.device("cpu")
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
-        device = torch.device("cuda")
-    kwargs = {'num_workers': 1, 'pin_memory': True}
+    device = torch.device("cuda" if use_gpu else "cpu")
+    init_logger(steganography_enum)
 
+    test_loader, train_loader, valid_loader = generate_data_loaders(steganography_enum)
+
+    if not os.path.exists(MODEL_EXPORT_PATH):
+        os.makedirs(MODEL_EXPORT_PATH)
+    # params_file_name = 'SRNET_model_params_boss_256_HILL04.pt'
+    params_file_name = 'SRNET_model_params_boss_256_' + steganography_enum.name + '04.pt'
+    params_path = os.path.join(MODEL_EXPORT_PATH, params_file_name)
+
+    model = SRNet().to(device)
+    # 加载复用之前已保存的训练完的模型
+    if not os.path.exists(params_path):
+        # raise RuntimeError('params_path 不存在')
+        print('params_path: {} 不存在'.format(params_path))
+    else:
+        all_state = torch.load(params_path, map_location=device)
+        original_state = all_state['original_state']
+        model.load_state_dict(original_state)
+
+    model.apply(init_weights)
+    best_acc, optimizer = train_model(device, model, params_path, train_loader, valid_loader)
+
+    logging.info('\nTest set accuracy: \n')
+    # Load best network parmater to test
+    all_state = torch.load(params_path, map_location=device)
+    original_state = all_state['original_state']
+    optimizer_state = all_state['optimizer_state']
+    model.load_state_dict(original_state)
+    optimizer.load_state_dict(optimizer_state)
+
+    evaluate(model, device, test_loader, EPOCHS, optimizer, best_acc, params_path)
+
+    torch.save(model, os.path.join(MODEL_EXPORT_PATH, steganography_enum.name + '_best_model.pth.tar'))
+
+
+def train_model(device, model, params_path, train_loader, valid_loader):
+    params = model.parameters()
+    params_wd, params_rest = [], []
+    for param_item in params:
+        if param_item.requires_grad:
+            (params_wd if param_item.dim() != 1 else params_rest).append(param_item)
+    param_groups = [{'params': params_wd, 'weight_decay': WEIGHT_DECAY},
+                    {'params': params_rest}]
+    optimizer = optim.SGD(param_groups, lr=LR, momentum=0.9, weight_decay=0.0005)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STETSIZE, gamma=scheduler_gama)
+    best_acc = 0.0
+    for epoch in range(1, EPOCHS + 1):
+        # scheduler.step()
+        model = train_implement(model, device, train_loader, optimizer, epoch)
+        if epoch % EVAL_PRINT_FREQUENCY == 0:
+            best_acc, test_loss = evaluate(model, device, valid_loader, epoch, optimizer, best_acc, params_path)
+        print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
+        scheduler.step()
+    return best_acc, optimizer
+
+
+def init_logger(steganography_enum):
+    # Log files
+    # log_name = 'SRNET_params_boss_256_HILL04.log'
+    log_name = 'SRNET_params_boss_256_' + steganography_enum.name + '04.log'
+    log_path = os.path.join(LOG_PATH, log_name)
+    if not os.path.exists(LOG_PATH):
+        os.makedirs(LOG_PATH)
+    setLogger(log_path, mode='w')
+
+
+def generate_data_loaders(steganography_enum):
+    kwargs = {'num_workers': 1, 'pin_memory': True}
     train_transform = transforms.Compose([
         AugData(),
         ToTensor()
     ])
-
     eval_transform = transforms.Compose([
         ToTensor()
     ])
@@ -337,29 +353,12 @@ def main(steganography_enum):
         transforms.Normalize((0.5,), (0.5,))
     ])
 
-    # Log files
-    # params_name = 'SRNET_model_params_boss_256_HILL04.pt'
-    params_name = 'SRNET_model_params_boss_256_' + steganography_enum.name + '04.pt'
-    # log_name = 'SRNET_params_boss_256_HILL04.log'
-    log_name = 'SRNET_params_boss_256_' + steganography_enum.name + '04.log'
-
-    if not os.path.exists(MODEL_EXPORT_PATH):
-        os.makedirs(MODEL_EXPORT_PATH)
-
-    params_path = os.path.join(MODEL_EXPORT_PATH, params_name)
-    log_path = os.path.join(LOG_PATH, log_name)
-
-    setLogger(log_path, mode='w')
-
-    # Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
     data = MyDataset(dataset_dir=DATASET_DIR, steganography_enum=steganography_enum, transform=transform)
     test_size = 0.2
     valid_size = 0.1
     num_data = len(data)
     indices_data = list(range(num_data))
-
     np.random.shuffle(indices_data)
-
     split_tt = int(np.floor(test_size * num_data))
     train_idx, test_idx = indices_data[split_tt:], indices_data[:split_tt]
     # For Valid
@@ -368,67 +367,13 @@ def main(steganography_enum):
     np.random.shuffle(indices_train)
     split_tv = int(np.floor(valid_size * num_train))
     train_new_idx, valid_idx = indices_train[split_tv:], indices_train[:split_tv]
-
     train_sampler = SubsetRandomSampler(train_new_idx)
     valid_sampler = SubsetRandomSampler(valid_idx)
     test_sampler = SubsetRandomSampler(test_idx)
-
     train_loader = DataLoader(data, batch_size=BATCH_SIZE, sampler=train_sampler, )
     valid_loader = DataLoader(data, batch_size=BATCH_SIZE, sampler=valid_sampler, )
     test_loader = DataLoader(data, batch_size=BATCH_SIZE, sampler=test_sampler, )
-
-    model = SRNet().to(device)
-    model.apply(initWeights)
-    params = model.parameters()
-
-    if not os.path.exists(params_path):
-        # raise RuntimeError('params_path 不存在')
-        print('params_path: {} 不存在'.format(params_path))
-    else:
-        if use_gpu:
-            all_state = torch.load(params_path)
-        else:
-            all_state = torch.load(params_path, map_location=torch.device('cpu'))
-        original_state = all_state['original_state']
-        model.load_state_dict(original_state)
-
-    params_wd, params_rest = [], []
-    for param_item in params:
-        if param_item.requires_grad:
-            (params_wd if param_item.dim() != 1 else params_rest).append(param_item)
-
-    param_groups = [{'params': params_wd, 'weight_decay': WEIGHT_DECAY},
-                    {'params': params_rest}]
-
-    optimizer = optim.SGD(param_groups, lr=LR, momentum=0.9, weight_decay=0.0005)
-
-    startEpoch = 1
-    # scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=DECAY_EPOCH, gamma=scheduler_gama)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STETSIZE, gamma=scheduler_gama)
-    best_acc = 0.0
-
-    for epoch in range(startEpoch, EPOCHS + 1):
-        # scheduler.step()
-        train(model, device, train_loader, optimizer, epoch)
-        if epoch % EVAL_PRINT_FREQUENCY == 0:
-            best_acc, test_loss = evaluate(model, device, valid_loader, epoch, optimizer, best_acc, params_path)
-        print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
-        # scheduler.step(test_loss)
-        scheduler.step()
-    logging.info('\nTest set accuracy: \n')
-
-    # Load best network parmater to test
-    all_state = torch.load(params_path)
-    original_state = all_state['original_state']
-    optimizer_state = all_state['optimizer_state']
-    model.load_state_dict(original_state)
-    optimizer.load_state_dict(optimizer_state)
-
-    evaluate(model, device, test_loader, EPOCHS, optimizer, best_acc, params_path)
-
-    torch.save(model, os.path.join(MODEL_EXPORT_PATH, '/' + steganography_enum.name + '_best_model.pth.tar'))
+    return test_loader, train_loader, valid_loader
 
 
 if __name__ == '__main__':
