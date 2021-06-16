@@ -46,6 +46,7 @@ LOG_PATH = 'data/log'
 MODEL_EXPORT_PATH = 'data/model_export'
 DATASET_DIR = r'D:\Work\dataset\steganalysis\BOSSBase'
 use_gpu = torch.cuda.is_available()
+reuse_model = True
 
 
 class SteganographyEnum(Enum):
@@ -84,7 +85,7 @@ def train_implement(model, device, train_loader, optimizer, epoch):
         shape = list(data.size())
         data = data.reshape(shape[0] * shape[1], *shape[2:])
         label = label.reshape(-1)
-        ##shuffle##
+        # shuffle
         idx = torch.randperm(shape[0])
         data = data[idx]
         label = label[idx]
@@ -112,23 +113,24 @@ def train_implement(model, device, train_loader, optimizer, epoch):
     return model
 
 
-def evaluate(model, device, eval_loader, epoch, optimizer, best_acc, params_path):
-    print('start evaluate')
+def evaluate(model, device, data_loader, epoch):
+    logging.info('start evaluate')
     model.eval()
     test_loss = 0.0
     correct = 0.0
     total = 0
     batch_num = 0
+    best_acc = 0.0
 
     with torch.no_grad():
-        for i, sample in enumerate(eval_loader):
+        for i, sample in enumerate(data_loader):
             if i % 10 == 0:
-                print("evaluate in {}/{}".format(i, len(eval_loader)))
+                print("evaluate in {}/{}".format(i, len(data_loader)))
             data, label = sample['data'], sample['label']
             shape = list(data.size())
             data = data.reshape(shape[0] * shape[1], *shape[2:])
             label = label.reshape(-1)
-            ##shuffle##
+            # shuffle
             idx = torch.randperm(shape[0])
             # data = data[idx]
             # label = label[idx]
@@ -147,17 +149,18 @@ def evaluate(model, device, eval_loader, epoch, optimizer, best_acc, params_path
     # accuracy = correct / (len(eval_loader.dataset) * 2)
     accuracy = 100. * correct / total
 
-    if accuracy > best_acc and epoch > 40:
+    if accuracy > best_acc:
         best_acc = accuracy
-        all_state = {
-            'original_state': model.state_dict(),
-            'optimizer_state': optimizer.state_dict(),
-            'epoch': epoch
-        }
-        torch.save(all_state, params_path)
+        # all_state = {
+        #     'original_state': model.state_dict(),
+        #     'optimizer_state': optimizer.state_dict(),
+        #     'epoch': epoch
+        # }
+        # torch.save(all_state, params_path)
 
     logging.info('-' * 8)
     test_loss = test_loss / batch_num
+    logging.info('Test in epoch {}'.format(epoch))
     logging.info('Test loss: {:.4f}'.format(test_loss))
     logging.info('Eval accuracy: {:.4f}'.format(accuracy))
     logging.info('Best accuracy:{:.4f}'.format(best_acc))
@@ -210,50 +213,6 @@ class ToTensor:
         return new_sample
 
 
-'''
-class MyDataset(Dataset):
-    def __init__(self, DATASET_DIR, partition, transform=None):
-        random.seed(1234)
-
-        self.transform = transform
-
-        self.cover_dir = DATASET_DIR + '/cover'
-        self.stego_dir = DATASET_DIR + '/stego/' + Model_NAME
-
-        self.covers_list = [x.split('/')[-1] for x in glob(self.cover_dir + '/*')]
-        random.shuffle(self.covers_list)
-        if (partition == 0):
-            self.cover_list = self.covers_list[:4000]
-        if (partition == 1):
-            self.cover_list = self.covers_list[4000:5000]
-        if (partition == 2):
-            self.cover_list = self.covers_list[5000:10000]
-        assert len(self.covers_list) != 0, "cover_dir is empty"
-
-    def __len__(self):
-        return len(self.cover_list)
-
-    def __getitem__(self, idx):
-        file_index = int(idx)
-
-        cover_path = os.path.join(self.cover_dir, self.cover_list[file_index])
-        stego_path = os.path.join(self.stego_dir, self.cover_list[file_index])
-
-        cover_data = cv2.imread(cover_path, -1)
-        stego_data = cv2.imread(stego_path, -1)
-
-        data = np.stack([cover_data, stego_data])
-        label = np.array([0, 1], dtype='int32')
-
-        sample = {'data': data, 'label': label}
-
-        if self.transform:
-            sample = self.transform(sample)
-
-        return sample
-'''
-
-
 def setLogger(log_path, mode='a'):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -278,37 +237,30 @@ def main(steganography_enum):
 
     if not os.path.exists(MODEL_EXPORT_PATH):
         os.makedirs(MODEL_EXPORT_PATH)
-    # params_file_name = 'SRNET_model_params_boss_256_HILL04.pt'
-    params_file_name = 'SRNET_model_params_boss_256_' + steganography_enum.name + '04.pt'
-    params_path = os.path.join(MODEL_EXPORT_PATH, params_file_name)
+    # model_save_file_name = 'SRNET_model_params_boss_256_HILL04.pt'
+    model_save_file_name = 'SRNET_model_boss_256_' + steganography_enum.name + '04.pth'
+    model_save_path = os.path.join(MODEL_EXPORT_PATH, model_save_file_name)
+    params_save_file_name = 'SRNET_model_params_boss_256_' + steganography_enum.name + '04.tar'
+    params_save_file_path = os.path.join(MODEL_EXPORT_PATH, params_save_file_name)
 
     model = SRNet().to(device)
     # 加载复用之前已保存的训练完的模型
-    if not os.path.exists(params_path):
-        # raise RuntimeError('params_path 不存在')
-        print('params_path: {} 不存在'.format(params_path))
-    else:
-        all_state = torch.load(params_path, map_location=device)
-        original_state = all_state['original_state']
-        model.load_state_dict(original_state)
+    if reuse_model:
+        if not os.path.exists(model_save_path):
+            # raise RuntimeError('model_save_path 不存在')
+            print('model_save_path: {} 不存在'.format(model_save_path))
+        else:
+            model = torch.load(model_save_path, map_location=device)
 
     model.apply(init_weights)
-    best_acc, optimizer = train_model(device, model, params_path, train_loader, valid_loader)
+    model = train_model(device, model, params_save_file_path, train_loader, valid_loader)
+    torch.save(model, model_save_path)
 
-    logging.info('\nTest set accuracy: \n')
-    # Load best network parmater to test
-    all_state = torch.load(params_path, map_location=device)
-    original_state = all_state['original_state']
-    optimizer_state = all_state['optimizer_state']
-    model.load_state_dict(original_state)
-    optimizer.load_state_dict(optimizer_state)
-
-    evaluate(model, device, test_loader, EPOCHS, optimizer, best_acc, params_path)
-
-    torch.save(model, os.path.join(MODEL_EXPORT_PATH, steganography_enum.name + '_best_model.pth.tar'))
+    logging.info('\nTest model')
+    evaluate(model, device, test_loader, EPOCHS)
 
 
-def train_model(device, model, params_path, train_loader, valid_loader):
+def train_model(device, model, params_save_file_path, train_loader, valid_loader):
     params = model.parameters()
     params_wd, params_rest = [], []
     for param_item in params:
@@ -318,15 +270,21 @@ def train_model(device, model, params_path, train_loader, valid_loader):
                     {'params': params_rest}]
     optimizer = optim.SGD(param_groups, lr=LR, momentum=0.9, weight_decay=0.0005)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STETSIZE, gamma=scheduler_gama)
-    best_acc = 0.0
+
     for epoch in range(1, EPOCHS + 1):
         # scheduler.step()
         model = train_implement(model, device, train_loader, optimizer, epoch)
-        if epoch % EVAL_PRINT_FREQUENCY == 0:
-            best_acc, test_loss = evaluate(model, device, valid_loader, epoch, optimizer, best_acc, params_path)
+        if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
+            evaluate(model, device, valid_loader, epoch)
         print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
         scheduler.step()
-    return best_acc, optimizer
+
+    all_state = {
+        'original_state': model.state_dict(),
+        'optimizer_state': optimizer.state_dict(),
+    }
+    torch.save(all_state, params_save_file_path)
+    return model
 
 
 def init_logger(steganography_enum):
