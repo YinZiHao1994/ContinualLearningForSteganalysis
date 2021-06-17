@@ -4,25 +4,17 @@ import os
 import argparse
 import numpy as np
 import pandas as pd
-import cv2
 from pathlib import Path
 import copy
 import logging
-import random
-import scipy.io as sio
-import matplotlib.pyplot as plt
-import time
-from glob import glob
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import torch.nn.functional as F
 from torch.utils.data.sampler import SubsetRandomSampler
-from PIL import Image
 # 30 SRM filtes
 # from srm_filter_kernel import all_normalized_hpf_list
 # Global covariance pooling
@@ -30,12 +22,13 @@ from PIL import Image
 from SRNet import SRNet
 from enum import Enum
 from dataset import MyDataset
+import steganalysis_utils
 
 BATCH_SIZE = 32
 EPOCHS = 100
 LR = 0.01
 WEIGHT_DECAY = 5e-4
-TRAIN_PRINT_FREQUENCY = 100
+TRAIN_PRINT_FREQUENCY = 50
 EVAL_PRINT_FREQUENCY = 1
 STETSIZE = 14
 scheduler_gama = 0.40
@@ -55,25 +48,8 @@ class SteganographyEnum(Enum):
     UTGAN = 3
 
 
-class AverageMeter(object):
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-
 def train_implement(model, device, train_loader, optimizer, epoch):
-    losses = AverageMeter()
+    # losses = steganalysis_utils.AverageMeter()
     model.train()
     train_loss = 0
     train_correct = 0
@@ -105,7 +81,7 @@ def train_implement(model, device, train_loader, optimizer, epoch):
         train_correct += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
 
         if i % TRAIN_PRINT_FREQUENCY == 0:
-            logging.info('Epoch: [{0}][{1}/{2}]\t'
+            logging.info('train epoch: [{0}][{1}/{2}]\t'
                          'Acc {acc:.4f}\t'
                          'Loss {loss:.4f} \t'
                          .format(epoch, i, len(train_loader), acc=100. * train_correct / total,
@@ -179,41 +155,7 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-# Data augmentation
-class AugData:
-    def __call__(self, sample):
-        data, label = sample['data'], sample['label']
-
-        # Rotation
-        rot = random.randint(0, 3)
-        data = np.rot90(data, rot, axes=[1, 2]).copy()
-
-        # Mirroring
-        if random.random() < 0.5:
-            data = np.flip(data, axis=2).copy()
-
-        new_sample = {'data': data, 'label': label}
-
-        return new_sample
-
-
-class ToTensor:
-    def __call__(self, sample):
-        data, label = sample['data'], sample['label']
-
-        data = np.expand_dims(data, axis=1)
-        data = data.astype(np.float32)
-        # data = data / 255.0
-
-        new_sample = {
-            'data': torch.from_numpy(data),
-            'label': torch.from_numpy(label).long(),
-        }
-
-        return new_sample
-
-
-def setLogger(log_path, mode='a'):
+def set_logger(log_path, mode='a'):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
@@ -294,43 +236,43 @@ def init_logger(steganography_enum):
     log_path = os.path.join(LOG_PATH, log_name)
     if not os.path.exists(LOG_PATH):
         os.makedirs(LOG_PATH)
-    setLogger(log_path, mode='w')
+    set_logger(log_path, mode='w')
 
 
 def generate_data_loaders(steganography_enum):
     kwargs = {'num_workers': 1, 'pin_memory': True}
     train_transform = transforms.Compose([
-        AugData(),
-        ToTensor()
+        steganalysis_utils.AugData(),
+        steganalysis_utils.ToTensor()
     ])
     eval_transform = transforms.Compose([
-        ToTensor()
+        steganalysis_utils.ToTensor()
     ])
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5,), (0.5,))
     ])
 
-    data = MyDataset(dataset_dir=DATASET_DIR, steganography_enum=steganography_enum, transform=transform)
-    test_size = 0.2
-    valid_size = 0.1
-    num_data = len(data)
-    indices_data = list(range(num_data))
+    dataset = MyDataset(dataset_dir=DATASET_DIR, steganography_enum=steganography_enum, transform=transform)
+    test_size_ratio = 0.2
+    valid_size_ratio = 0.1
+    dataset_size = len(dataset)
+    indices_data = list(range(dataset_size))
     np.random.shuffle(indices_data)
-    split_tt = int(np.floor(test_size * num_data))
+    split_tt = int(np.floor(test_size_ratio * dataset_size))
     train_idx, test_idx = indices_data[split_tt:], indices_data[:split_tt]
     # For Valid
     num_train = len(train_idx)
     indices_train = list(range(num_train))
     np.random.shuffle(indices_train)
-    split_tv = int(np.floor(valid_size * num_train))
+    split_tv = int(np.floor(valid_size_ratio * num_train))
     train_new_idx, valid_idx = indices_train[split_tv:], indices_train[:split_tv]
     train_sampler = SubsetRandomSampler(train_new_idx)
     valid_sampler = SubsetRandomSampler(valid_idx)
     test_sampler = SubsetRandomSampler(test_idx)
-    train_loader = DataLoader(data, batch_size=BATCH_SIZE, sampler=train_sampler, )
-    valid_loader = DataLoader(data, batch_size=BATCH_SIZE, sampler=valid_sampler, )
-    test_loader = DataLoader(data, batch_size=BATCH_SIZE, sampler=test_sampler, )
+    train_loader = DataLoader(dataset, batch_size=BATCH_SIZE, sampler=train_sampler, )
+    valid_loader = DataLoader(dataset, batch_size=BATCH_SIZE, sampler=valid_sampler, )
+    test_loader = DataLoader(dataset, batch_size=BATCH_SIZE, sampler=test_sampler, )
     return test_loader, train_loader, valid_loader
 
 
