@@ -19,11 +19,11 @@ import pickle
 
 import sys
 
-from mas.model_class import *
+from MAS.model_class import *
 from SRNet import SRNet
-from strganalysis_with_lll import MODEL_EXPORT_PATH
 
-sys.path.append('../')
+# sys.path.append('../')
+MODEL_EXPORT_PATH = 'data/model_export'
 
 
 def exp_lr_scheduler(optimizer, epoch, init_lr=0.0008, lr_decay_epoch=20):
@@ -180,7 +180,7 @@ def init_weights(module):
 
 # all models are derived from the Alexnet architecture
 def get_pre_model(use_gpu=False, reuse_model=False):
-    model_save_file_name = 'SRNET_model_boss_256_' + 'boss_256_HILL' + '04.pth'
+    model_save_file_name = 'SRNET_model_boss_256_' + 'HILL' + '04.pth'
     model_save_path = os.path.join(MODEL_EXPORT_PATH, model_save_file_name)
     device = torch.device("cuda" if use_gpu else "cpu")
     model = SRNet().to(device)
@@ -219,7 +219,8 @@ def model_init(no_classes, use_gpu=False, reuse_model=True):
 
     pre_model = get_pre_model(use_gpu, reuse_model)
     model = SharedModel(pre_model)
-
+    """
+    对 隐写分析的 SRNet 来说，不需要改最后的分类层，永远都是二分类
     # initialize a new classification head
     tmodel_classifier = model.tmodel.classifier
     in_features = tmodel_classifier[-1].in_features
@@ -232,6 +233,10 @@ def model_init(no_classes, use_gpu=False, reuse_model=True):
 
     # add the last classfication head to the shared model
     tmodel_classifier.add_module(str(len(tmodel_classifier)), nn.Linear(in_features, no_classes))
+    """
+    # load the model
+    if os.path.isfile(path):
+        model.load_state_dict(torch.load(path))
 
     # load the reg_params stored
     if os.path.isfile(path_to_reg):

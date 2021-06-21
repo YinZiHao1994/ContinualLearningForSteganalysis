@@ -20,11 +20,12 @@ import sys
 import time
 
 # sys.path.append('./utils')
-from utils.model_utils import *
-from utils.mas_utils import *
+# from MAS.masUtils.model_utils import *
+from MAS.masUtils.model_utils import *
+# from mas_utils import *
 
-from optimizer_lib import *
-from model_train import *
+from MAS.optimizer_lib import *
+from MAS.model_train import *
 
 
 def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test, lr=0.001,

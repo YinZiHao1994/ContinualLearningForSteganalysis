@@ -23,8 +23,8 @@ from SRNet import SRNet
 from enum import Enum
 from dataset import MyDataset
 import steganalysis_utils
-from mas import model_train, mas
-from mas.utils import mas_utils, model_utils
+from MAS import mas
+from MAS.masUtils import utils, model_utils
 
 BATCH_SIZE = 32
 EPOCHS = 100
@@ -38,7 +38,6 @@ scheduler_gama = 0.40
 # DECAY_EPOCH = [20, 60, 90, 120, 150, 170, 190]
 DECAY_EPOCH = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190]
 LOG_PATH = 'data/log'
-MODEL_EXPORT_PATH = 'data/model_export'
 DATASET_DIR = r'D:\Work\dataset\steganalysis\BOSSBase'
 use_gpu = torch.cuda.is_available()
 reuse_model = True
@@ -46,7 +45,6 @@ reuse_model = True
 train_dset_loaders = []
 valid_dset_loaders = []
 test_dset_loaders = []
-
 
 
 class SteganographyEnum(Enum):
@@ -250,9 +248,6 @@ reg_lambda = 1
 def main(steganography_enums):
     device = torch.device("cuda" if use_gpu else "cpu")
 
-    if not os.path.exists(MODEL_EXPORT_PATH):
-        os.makedirs(MODEL_EXPORT_PATH)
-
     for steganography_enum in steganography_enums:
         init_logger(steganography_enum)
         test_loader, train_loader, valid_loader = generate_data_loaders(steganography_enum)
@@ -269,7 +264,8 @@ def main(steganography_enums):
         dataloader_train = train_dset_loaders[task - 1]
         dataloader_valid = valid_dset_loaders[task - 1]
 
-        no_of_classes = dataloader_train.dataset.classes
+        # no_of_classes = dataloader_train.dataset.classes
+        no_of_classes = 2
 
         model = model_utils.model_init(no_of_classes, use_gpu)
 
@@ -285,7 +281,8 @@ def main(steganography_enums):
         print("Testing the model on task {}".format(task))
 
         dataloader_test = test_dset_loaders[task - 1]
-        no_of_classes = dataloader_test.dataset.classes
+        # no_of_classes = dataloader_test.dataset.classes
+        no_of_classes = 2
 
         # load the model for inference
         model = model_utils.model_inference(task, use_gpu)

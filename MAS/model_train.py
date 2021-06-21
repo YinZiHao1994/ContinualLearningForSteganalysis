@@ -19,11 +19,12 @@ import shutil
 import sys
 import time
 
-# sys.path.append('./utils')
-from utils.model_utils import *
-from utils.mas_utils import *
+# sys.path.append('masUtils')
+# print(sys.path)
+from MAS.masUtils.model_utils import *
+from MAS.masUtils.utils import *
 
-from optimizer_lib import *
+from MAS.optimizer_lib import *
 
 
 def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloader_train, dataloader_test, num_epochs,
@@ -189,7 +190,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                 output = model.tmodel(data)
                 del data
 
-                loss = model_criterion(output, labels)
+                loss = model_criterion(output, label)
 
                 loss.backward()
                 # print (model.reg_params)

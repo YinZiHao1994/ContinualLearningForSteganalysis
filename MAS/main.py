@@ -17,14 +17,14 @@ from random import shuffle
 import copy
 import sys
 
-from utils.model_utils import *
-from utils.mas_utils import *
+from masUtils.model_utils import *
+from masUtils.utils import *
 from model_class import *
 from optimizer_lib import *
 from model_train import *
 from mas import *
 
-# sys.path.append('./utils')
+# sys.path.append('./masUtils')
 torch.backends.cudnn.benchmark = True
 
 parser = argparse.ArgumentParser(description='Test file')
@@ -81,9 +81,9 @@ for task_dir in sorted(os.listdir(data_dir)):
     te_image_folder = datasets.ImageFolder(os.path.join(data_dir, task_dir, "test"), transform=data_transforms['test'])
 
     # get the dataloaders
-    # tr_dset_loaders = torch.utils.data.DataLoader(tr_image_folder, batch_size=batch_size, shuffle=True, num_workers=4)
+    # tr_dset_loaders = torch.masUtils.data.DataLoader(tr_image_folder, batch_size=batch_size, shuffle=True, num_workers=4)
     tr_dset_loader = torch.utils.data.DataLoader(tr_image_folder, batch_size=batch_size, shuffle=True)
-    # te_dset_loaders = torch.utils.data.DataLoader(te_image_folder, batch_size=batch_size, shuffle=True, num_workers=4)
+    # te_dset_loaders = torch.masUtils.data.DataLoader(te_image_folder, batch_size=batch_size, shuffle=True, num_workers=4)
     te_dset_loader = torch.utils.data.DataLoader(te_image_folder, batch_size=batch_size, shuffle=True)
 
     # get the sizes
