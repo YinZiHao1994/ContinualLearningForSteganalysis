@@ -296,6 +296,9 @@ def sanity_model(model):
 
 # function to freeze selected layers
 def create_freeze_layers(model, num_freeze_layers=2):
+    #SRNet没有 classifier，features层。不实现此方法，直接返回空
+    return [model, []]
+
     """
     Inputs
     1) model: A reference to the model

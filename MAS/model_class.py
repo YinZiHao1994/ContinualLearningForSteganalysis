@@ -37,7 +37,7 @@ class SharedModel(nn.Module):
 
     def __init__(self, model):
         super(SharedModel, self).__init__()
-        self.tmodel = models.alexnet(pretrained=True)
+        self.tmodel = model
         self.reg_params = {}
 
     def forward(self, x):
