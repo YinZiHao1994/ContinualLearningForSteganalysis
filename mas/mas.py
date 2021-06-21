@@ -27,8 +27,8 @@ from optimizer_lib import *
 from model_train import *
 
 
-def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test,
-              dset_size_train, dset_size_test, lr=0.001, reg_lambda=0.01, use_gpu=False):
+def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test, lr=0.001,
+              reg_lambda=0.01, use_gpu=False):
     """
     Inputs:
     1) model: A reference to the model that is being exposed to the data for the task
@@ -60,7 +60,7 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
     # get the optimizer
     optimizer_sp = LocalSgd(model.tmodel.parameters(), reg_lambda, lr)
     train_model(model, task_no, no_of_classes, optimizer_sp, model_criterion, dataloader_train, dataloader_test,
-                dset_size_train, dset_size_test, num_epochs, use_gpu, lr, reg_lambda)
+                num_epochs, use_gpu, lr, reg_lambda)
 
     if task_no > 1:
         model = consolidate_reg_params(model, use_gpu)
@@ -68,11 +68,11 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
     return model
 
 
-def compute_forgetting(model, task_no, dataloader, dset_size, use_gpu):
+def compute_forgetting(model, task_no, dataloader, use_gpu):
     """
     Inputs
     1) task_no: The task number on which you want to compute the forgetting
-    2) dataloader: The dataloader that feeds in the data to the model
+    2) dataloader: The dataloader that feeds in the sample to the model
 
     Outputs
     1) forgetting: The amount of forgetting undergone by the model
@@ -92,27 +92,35 @@ def compute_forgetting(model, task_no, dataloader, dset_size, use_gpu):
 
     running_corrects = 0.0
 
-    for data in dataloader:
-        input_data, labels = data
-        del data
+    for sample in dataloader:
+        datas, labels = sample['data'], sample['label']
+        shape = list(datas.size())
+        datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+        labels = labels.reshape(-1)
+        # shuffle
+        idx = torch.randperm(shape[0])
+        data = datas[idx]
+        label = labels[idx]
+        del sample
 
         if use_gpu:
-            input_data = input_data.to(device)
-            labels = labels.to(device)
+            data = data.to(device)
+            label = label.to(device)
 
         else:
-            input_data = Variable(input_data)
-            labels = Variable(labels)
+            data = Variable(data)
+            label = Variable(label)
 
-        output = model.tmodel(input_data)
-        del input_data
+        output = model.tmodel(data)
+        del data
 
-        _, preds = torch.max(output, 1)
+        # running_corrects += torch.sum(preds == labels.data)
+        prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
 
-        running_corrects += torch.sum(preds == labels.data)
-        del preds
+        running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
         del labels
 
+    dset_size = len(dataloader.dataset)
     epoch_accuracy = running_corrects / dset_size
 
     old_performance = float(old_performance)

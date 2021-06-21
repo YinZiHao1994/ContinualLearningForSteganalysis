@@ -21,6 +21,7 @@ import sys
 
 from mas.model_class import *
 from SRNet import SRNet
+from strganalysis_with_lll import MODEL_EXPORT_PATH
 
 sys.path.append('../')
 
@@ -179,8 +180,8 @@ def init_weights(module):
 
 # all models are derived from the Alexnet architecture
 def get_pre_model(use_gpu=False, reuse_model=False):
-    # todo
-    model_save_path = ''
+    model_save_file_name = 'SRNET_model_boss_256_' + 'boss_256_HILL' + '04.pth'
+    model_save_path = os.path.join(MODEL_EXPORT_PATH, model_save_file_name)
     device = torch.device("cuda" if use_gpu else "cpu")
     model = SRNet().to(device)
     # 加载复用之前已保存的训练完的模型
@@ -188,10 +189,11 @@ def get_pre_model(use_gpu=False, reuse_model=False):
         if not os.path.exists(model_save_path):
             # raise RuntimeError('model_save_path 不存在')
             print('model_save_path: {} 不存在'.format(model_save_path))
+            model.apply(init_weights)
         else:
             model = torch.load(model_save_path, map_location=device)
-
-    model.apply(init_weights)
+    else:
+        model.apply(init_weights)
     return model
 
 
@@ -219,16 +221,17 @@ def model_init(no_classes, use_gpu=False, reuse_model=True):
     model = SharedModel(pre_model)
 
     # initialize a new classification head
-    in_features = model.tmodel.classifier[-1].in_features
+    tmodel_classifier = model.tmodel.classifier
+    in_features = tmodel_classifier[-1].in_features
 
-    del model.tmodel.classifier[-1]
+    del tmodel_classifier[-1]
 
     # load the model
     if os.path.isfile(path):
         model.load_state_dict(torch.load(path))
 
     # add the last classfication head to the shared model
-    model.tmodel.classifier.add_module('6', nn.Linear(in_features, no_classes))
+    tmodel_classifier.add_module(str(len(tmodel_classifier)), nn.Linear(in_features, no_classes))
 
     # load the reg_params stored
     if os.path.isfile(path_to_reg):

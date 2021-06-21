@@ -117,9 +117,8 @@ for task in range(1, no_of_tasks + 1):
 
     model = model_init(no_of_classes, use_gpu)
 
-    mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test,
-              dset_size_train,
-              dset_size_test, lr, reg_lambda, use_gpu)
+    mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test, lr,
+              reg_lambda, use_gpu)
 
 print("The training process on the {} tasks is completed".format(no_of_tasks))
 
@@ -138,6 +137,6 @@ for task in range(1, no_of_tasks + 1):
     device = torch.device("cuda:0" if use_gpu else "cpu")
     model.to(device)
 
-    forgetting = compute_forgetting(model, task, dataloader, dset_size, use_gpu)
+    forgetting = compute_forgetting(model, task, dataloader, use_gpu)
 
     print("The forgetting undergone on task {} is {:.4f}".format(task, forgetting))

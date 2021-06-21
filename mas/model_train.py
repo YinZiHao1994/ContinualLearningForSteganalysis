@@ -26,15 +26,15 @@ from utils.mas_utils import *
 from optimizer_lib import *
 
 
-def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloader_train, dataloader_test,
-                dset_size_train, dset_size_test, num_epochs, use_gpu=False, lr=0.001, reg_lambda=0.01):
+def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloader_train, dataloader_test, num_epochs,
+                use_gpu=False, lr=0.001, reg_lambda=0.01):
     """
     Inputs:
-    1) model: A reference to the model that is being exposed to the data for the task
+    1) model: A reference to the model that is being exposed to the sample for the task
     2) optimizer: A local_sgd optimizer object that implements the idea of MaS
     3) model_criterion: The loss function used to train the model
-    4) dataloader_train: A dataloader to feed the training data to the model
-    5) dataloader_test: A dataloader to feed the test data to the model
+    4) dataloader_train: A dataloader to feed the training sample to the model
+    5) dataloader_test: A dataloader to feed the test sample to the model
     6) dset_size_train: Size of the dataset that belongs to a specific task
     7) dset_size_test: Size of the test dataset that belongs to a specific task
     8) num_epochs: Number of epochs that you wish to train the model for
@@ -70,7 +70,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
         ####################### Get the checkpoint if it exists ###############################
 
         # check for a checkpoint file
-        if (checkpoint_file == ""):
+        if checkpoint_file == "":
             start_epoch = 0
 
         else:
@@ -109,42 +109,48 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
             model.tmodel.eval()
 
-            for index, data in enumerate(dataloader_test):
+            for index, sample in enumerate(dataloader_test):
                 if index % 50 == 0:
-                    print("data {}/{} in dataloader_test".format(index, len(dataloader_test)))
-                input_data, labels = data
+                    print("sample {}/{} in dataloader_test".format(index, len(dataloader_test)))
+                datas, labels = sample['data'], sample['label']
+                shape = list(datas.size())
+                datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+                labels = labels.reshape(-1)
+                # shuffle
+                idx = torch.randperm(shape[0])
+                data = datas[idx]
+                label = labels[idx]
 
-                del data
+                del sample
 
                 if use_gpu:
-                    input_data = input_data.to(device)
-                    labels = labels.to(device)
+                    data = data.to(device)
+                    label = label.to(device)
 
                 else:
-                    input_data = input_data
-                    labels = Variable(labels)
+                    data = Variable(data)
+                    label = Variable(label)
 
                 # optimizer.zero_grad()
 
-                output = model.tmodel(input_data)
-                del input_data
+                output = model.tmodel(data)
+                del data
 
-                _, preds = torch.max(output, 1)
+                # running_corrects += torch.sum(preds == labels.data)
+                prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
 
-                del output
-
-                running_corrects += torch.sum(preds == labels.data)
-                del preds
+                running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
                 del labels
 
-            epoch_accuracy = running_corrects / dset_size_test
-
+            dataset_size = len(dataloader_test.dataset)
+            epoch_accuracy = running_corrects / dataset_size
+            print("valuate epoch_accuracy is {}".format(epoch_accuracy))
         else:
 
             since = time.time()
             best_perform = 10e6
 
-            print("Epoch {}/{}".format(epoch + 1, num_epochs))
+            # print("Epoch {}/{}".format(epoch + 1, num_epochs))
             print("-" * 20)
             # print ("The training phase is ongoing")
 
@@ -156,30 +162,34 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
             model.tmodel.train(True)
 
-            for index, data in enumerate(dataloader_train):
+            for index, sample in enumerate(dataloader_train):
                 if index % 50 == 0:
-                    print("data {}/{} in dataloader_train".format(index, len(dataloader_train)))
-                input_data, labels = data
+                    print("sample {}/{} in dataloader_train".format(index, len(dataloader_train)))
 
-                del data
+                datas, labels = sample['data'], sample['label']
+                shape = list(datas.size())
+                datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+                labels = labels.reshape(-1)
+                # shuffle
+                idx = torch.randperm(shape[0])
+                data = datas[idx]
+                label = labels[idx]
 
                 if use_gpu:
-                    input_data = input_data.to(device)
-                    labels = labels.to(device)
+                    data = data.to(device)
+                    label = label.to(device)
 
                 else:
-                    input_data = Variable(input_data)
-                    labels = Variable(labels)
+                    data = Variable(data)
+                    label = Variable(label)
 
                 model.tmodel.to(device)
                 optimizer.zero_grad()
 
-                output = model.tmodel(input_data)
-                del input_data
+                output = model.tmodel(data)
+                del data
 
-                _, preds = torch.max(output, 1)
                 loss = model_criterion(output, labels)
-                del output
 
                 loss.backward()
                 # print (model.reg_params)
@@ -189,14 +199,19 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                 running_loss += loss.item()
                 del loss
 
-                running_corrects += torch.sum(preds == labels.data)
-                del preds
+                # running_corrects += torch.sum(preds == labels.data)
+                prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
+
+                running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
                 del labels
 
-            epoch_loss = running_loss / dset_size_train
-            epoch_accuracy = running_corrects / dset_size_train
+            dataset_size = len(dataloader_train.dataset)
+            epoch_loss = running_loss / dataset_size
+            epoch_accuracy = running_corrects / dataset_size
 
-            print('Loss: {:.4f} Acc: {:.4f}'.format(epoch_loss, epoch_accuracy))
+            print('train epoch: {}/{}\n'
+                  'Loss: {:.4f}\n'
+                  'Acc: {:.4f}'.format(epoch + 1, num_epochs, epoch_loss, epoch_accuracy))
 
             # avoid saving a file twice
             if epoch != 0 and epoch != num_epochs - 1 and (epoch + 1) % 10 == 0:

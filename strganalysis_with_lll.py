@@ -47,11 +47,6 @@ train_dset_loaders = []
 valid_dset_loaders = []
 test_dset_loaders = []
 
-train_dsets_size = []
-valid_dsets_size = []
-test_dsets_size = []
-
-num_classes = []
 
 
 class SteganographyEnum(Enum):
@@ -140,14 +135,14 @@ def train_implement(model, device, train_loader, optimizer, epoch):
 
     for i, sample in enumerate(train_loader):
 
-        data, label = sample['data'], sample['label']
-        shape = list(data.size())
-        data = data.reshape(shape[0] * shape[1], *shape[2:])
-        label = label.reshape(-1)
+        datas, labels = sample['data'], sample['label']
+        shape = list(datas.size())
+        datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+        labels = labels.reshape(-1)
         # shuffle
         idx = torch.randperm(shape[0])
-        data = data[idx]
-        label = label[idx]
+        data = datas[idx]
+        label = labels[idx]
 
         data, label = data.to(device), label.to(device)
 
@@ -264,12 +259,7 @@ def main(steganography_enums):
         train_dset_loaders.append(train_loader)
         valid_dset_loaders.append(valid_loader)
         test_dset_loaders.append(test_loader)
-        train_dsets_size.append(len(train_loader))
-        valid_dsets_size.append(len(valid_loader))
-        test_dsets_size.append(len(test_loader))
 
-    # get the classes (THIS MIGHT NEED TO BE CORRECTED)
-    num_classes.append(len(train_dset_loaders[0].dataset.classes))
     # get the number of tasks in the sequence
     no_of_tasks = len(train_dset_loaders)
     # train the model on the given number of tasks
@@ -278,17 +268,13 @@ def main(steganography_enums):
 
         dataloader_train = train_dset_loaders[task - 1]
         dataloader_valid = valid_dset_loaders[task - 1]
-        dataloader_test = test_dset_loaders[task - 1]
-        dset_size_train = train_dsets_size[task - 1]
-        dset_size_valid = valid_dsets_size[task - 1]
-        dset_size_test = test_dsets_size[task - 1]
 
-        no_of_classes = num_classes[task - 1]
+        no_of_classes = dataloader_train.dataset.classes
 
         model = model_utils.model_init(no_of_classes, use_gpu)
 
-        mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train,
-                      dataloader_valid, dset_size_train, dset_size_valid, lr, reg_lambda, use_gpu)
+        mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr,
+                      reg_lambda, use_gpu)
 
     print("The training process on the {} tasks is completed".format(no_of_tasks))
 
@@ -298,15 +284,14 @@ def main(steganography_enums):
     for task in range(1, no_of_tasks + 1):
         print("Testing the model on task {}".format(task))
 
-        dataloader = test_dset_loaders[task - 1]
-        dset_size = test_dsets_size[task - 1]
-        no_of_classes = num_classes[task - 1]
+        dataloader_test = test_dset_loaders[task - 1]
+        no_of_classes = dataloader_test.dataset.classes
 
         # load the model for inference
         model = model_utils.model_inference(task, use_gpu)
         model.to(device)
 
-        forgetting = mas.compute_forgetting(model, task, dataloader, dset_size, use_gpu)
+        forgetting = mas.compute_forgetting(model, task, dataloader_test, use_gpu)
 
         print("The forgetting undergone on task {} is {:.4f}".format(task, forgetting))
 

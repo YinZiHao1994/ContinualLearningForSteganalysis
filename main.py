@@ -57,14 +57,14 @@ def train_implement(model, device, train_loader, optimizer, epoch):
 
     for i, sample in enumerate(train_loader):
 
-        data, label = sample['data'], sample['label']
-        shape = list(data.size())
-        data = data.reshape(shape[0] * shape[1], *shape[2:])
-        label = label.reshape(-1)
+        datas, labels = sample['data'], sample['label']
+        shape = list(datas.size())
+        datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+        labels = labels.reshape(-1)
         # shuffle
         idx = torch.randperm(shape[0])
-        data = data[idx]
-        label = label[idx]
+        data = datas[idx]
+        label = labels[idx]
 
         data, label = data.to(device), label.to(device)
 
