@@ -144,21 +144,26 @@ def model_inference(task_no, use_gpu=False):
 
     num_classes = int(num_classes)
     # print (num_classes)
-    in_features = model.tmodel.classifier[-1].in_features
+    # in_features = model.tmodel.classifier[-1].in_features
+    # 针对 SRNet 的情况
+    classifier = model.tmodel.fc1
+    in_features = classifier.in_features
 
-    del model.tmodel.classifier[-1]
+    # del classifier
+
     # load the classifier head for the given task identified by the task number
-    classifier = ClassificationHead(in_features, num_classes)
-    classifier.load_state_dict(torch.load(os.path.join(path_to_head, "head.pth")))
+    classification_head = ClassificationHead(in_features, num_classes)
+    classification_head.load_state_dict(torch.load(os.path.join(path_to_head, "head.pth")))
 
     # load the trained shared model
     model.load_state_dict(torch.load(os.path.join(path_to_model, "shared_model.pth")))
 
-    model.tmodel.classifier.add_module('6', nn.Linear(in_features, num_classes))
+    # model.tmodel.classifier.add_module('6', nn.Linear(in_features, num_classes))
+    model.tmodel.fc1 = nn.Linear(in_features, num_classes)
 
     # change the weights layers to the classifier head weights
-    model.tmodel.classifier[-1].weight.data = classifier.fc.weight.data
-    model.tmodel.classifier[-1].bias.data = classifier.fc.bias.data
+    model.tmodel.fc1.weight.data = classification_head.fc.weight.data
+    model.tmodel.fc1.bias.data = classification_head.fc.bias.data
 
     # device = torch.device("cuda:0" if use_gpu else "cpu")
     model.eval()
@@ -269,13 +274,18 @@ def save_model(model, task_no, epoch_accuracy):
     path_to_head = os.path.join(path_to_model, "Task_" + str(task_no))
 
     # get the features of the classification head
-    in_features = model.tmodel.classifier[-1].in_features
-    out_features = model.tmodel.classifier[-1].out_features
+    # in_features = model.tmodel.classifier[-1].in_features
+    # out_features = model.tmodel.classifier[-1].out_features
 
-    # seperate out the classification head from the model
+    # 针对 SRNet 的情况
+    classifier = model.tmodel.fc1
+    in_features = classifier.in_features
+    out_features = classifier.out_features
+
+    # separate out the classification head from the model
     ref = ClassificationHead(in_features, out_features)
-    ref.fc.weight.data = model.tmodel.classifier[-1].weight.data
-    ref.fc.bias.data = model.tmodel.classifier[-1].bias.data
+    ref.fc.weight.data = classifier.weight.data
+    ref.fc.bias.data = classifier.bias.data
 
     # save the reg_params
     reg_params = model.reg_params
@@ -285,7 +295,7 @@ def save_model(model, task_no, epoch_accuracy):
     f.close()
 
     # save tge model
-    del model.tmodel.classifier[-1]
+    del classifier
 
     # save the model at the specified location
     torch.save(model.state_dict(), os.path.join(path_to_model, "shared_model.pth"))

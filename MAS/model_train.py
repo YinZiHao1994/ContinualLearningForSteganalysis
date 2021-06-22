@@ -96,10 +96,12 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
     # commencing the training loop
     epoch_accuracy = 0
+
     for epoch in range(start_epoch, omega_epochs):
 
         # run the omega accumulation at convergence of the loss function
         if epoch == omega_epochs - 1:
+            total = 0
             # no training of the model takes place in this epoch
             optimizer_ft = OmegaUpdate(model.reg_params)
             print("Updating the omega values for this task")
@@ -142,11 +144,13 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
                 running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
                 del labels
+                total += label.size(0)
 
             dataset_size = len(dataloader_test.dataset)
-            epoch_accuracy = running_corrects / dataset_size
+            epoch_accuracy = running_corrects / total
             print("valuate epoch_accuracy is {}".format(epoch_accuracy))
         else:
+            total = 0
 
             since = time.time()
             best_perform = 10e6
@@ -205,10 +209,11 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
                 running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
                 del labels
+                total += label.size(0)
 
             dataset_size = len(dataloader_train.dataset)
-            epoch_loss = running_loss / dataset_size
-            epoch_accuracy = running_corrects / dataset_size
+            epoch_loss = running_loss / total
+            epoch_accuracy = running_corrects / total
 
             print('train epoch: {}/{}\n'
                   'Loss: {:.4f}\n'
