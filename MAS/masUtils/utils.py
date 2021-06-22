@@ -164,7 +164,7 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
     """
     Inputs:
     1) model: A reference to the model for which omega is to be calculated
-    2) dataloader: A dataloader to feed the data to the model
+    2) dataloader: A dataloader to feed the sample to the model
     3) optimizer: An instance of the "omega_update" class
     4) use_gpu: Flag is set to True if the model is to be trained on the GPU
 
@@ -179,13 +179,21 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
     model.tmodel.eval()
 
     index = 0
-    for data in dataloader:
+    for sample in dataloader:
 
         # get the inputs and labels
-        inputs, labels = data
+        # inputs, labels = sample
+        inputs, labels = sample['data'], sample['label']
+        shape = list(inputs.size())
+        inputs = inputs.reshape(shape[0] * shape[1], *shape[2:])
+        labels = labels.reshape(-1)
+        # shuffle
+        idx = torch.randperm(shape[0])
+        inputs = inputs[idx]
+        labels = labels[idx]
 
-        if (use_gpu):
-            device = torch.device("cuda:0" if use_gpu else "cpu")
+        device = torch.device("cuda:0" if use_gpu else "cpu")
+        if use_gpu:
             inputs, labels = inputs.to(device), labels.to(device)
 
         # Zero the parameter gradients
@@ -208,7 +216,7 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         # compute gradients for these parameters
         sum_norm.backward()
 
-        # optimizer.step computes the omega values for the new batches of data
+        # optimizer.step computes the omega values for the new batches of sample
         optimizer.step(model.reg_params, index, labels.size(0), use_gpu)
         del labels
 
@@ -296,7 +304,7 @@ def sanity_model(model):
 
 # function to freeze selected layers
 def create_freeze_layers(model, num_freeze_layers=2):
-    #SRNet没有 classifier，features层。不实现此方法，直接返回空
+    # SRNet没有 classifier，features层。不实现此方法，直接返回空
     return [model, []]
 
     """
