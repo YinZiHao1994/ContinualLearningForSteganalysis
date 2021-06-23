@@ -92,6 +92,7 @@ def compute_forgetting(model, task_no, dataloader, use_gpu):
     file_object.close()
 
     running_corrects = 0.0
+    total = 0
 
     for sample in dataloader:
         datas, labels = sample['data'], sample['label']
@@ -120,11 +121,13 @@ def compute_forgetting(model, task_no, dataloader, use_gpu):
 
         running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
         del labels
+        total += label.size(0)
 
     dset_size = len(dataloader.dataset)
-    epoch_accuracy = running_corrects / dset_size
+    epoch_accuracy = running_corrects / total
 
     old_performance = float(old_performance)
-    forgetting = epoch_accuracy.item() - old_performance
+    epoch_accuracy = (epoch_accuracy.item() if torch.is_tensor(epoch_accuracy) else epoch_accuracy)
+    forgetting = epoch_accuracy - old_performance
     print("on task {} the old_accuracy and new_accuracy  is {} and {}".format(task_no, old_performance, epoch_accuracy))
     return forgetting
