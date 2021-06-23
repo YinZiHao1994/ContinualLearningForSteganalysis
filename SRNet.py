@@ -229,7 +229,8 @@ class SRNet(nn.Module):
         self.bn122 = nn.BatchNorm2d(512)
         # avgp = torch.mean() in forward before fc
         # Fully Connected layer
-        self.fc = nn.Linear(512 * 1 * 1, 2)
+        # self.fc = nn.Linear(512 * 1 * 1, 2)
+        self.fc1 = nn.Linear(512 * 1 * 1, 2)
         # self.fc1 = nn.Linear(int(512 * (512 + 1) / 2), 2)
 
     def forward(self, inputs):
@@ -322,7 +323,7 @@ class SRNet(nn.Module):
         # output = SqrtmLayer(output, 5)
         # output = TriuvecLayer(output)
         # flatten = output.view(output.size(0), -1)
-        fc = self.fc(flatten)
-        # fc = self.fc1(flatten)
+        # fc = self.fc(flatten)
+        fc = self.fc1(flatten)
         out = F.log_softmax(fc, dim=1)
         return fc
