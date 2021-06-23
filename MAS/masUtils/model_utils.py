@@ -146,7 +146,7 @@ def model_inference(task_no, use_gpu=False):
     # print (num_classes)
     # in_features = model.tmodel.classifier[-1].in_features
     # 针对 SRNet 的情况
-    classifier = model.tmodel.fc1
+    classifier = model.tmodel.fc
     in_features = classifier.in_features
 
     # del classifier
@@ -159,11 +159,11 @@ def model_inference(task_no, use_gpu=False):
     model.load_state_dict(torch.load(os.path.join(path_to_model, "shared_model.pth")))
 
     # model.tmodel.classifier.add_module('6', nn.Linear(in_features, num_classes))
-    model.tmodel.fc1 = nn.Linear(in_features, num_classes)
+    model.tmodel.fc = nn.Linear(in_features, num_classes)
 
     # change the weights layers to the classifier head weights
-    model.tmodel.fc1.weight.data = classification_head.fc.weight.data
-    model.tmodel.fc1.bias.data = classification_head.fc.bias.data
+    model.tmodel.fc.weight.data = classification_head.fc.weight.data
+    model.tmodel.fc.bias.data = classification_head.fc.bias.data
 
     # device = torch.device("cuda:0" if use_gpu else "cpu")
     model.eval()
@@ -239,9 +239,17 @@ def model_init(no_classes, use_gpu=False, reuse_model=True):
     # add the last classfication head to the shared model
     tmodel_classifier.add_module(str(len(tmodel_classifier)), nn.Linear(in_features, no_classes))
     """
+    # 针对 隐写分析的 SRNet 的情况
+    # initialize a new classification head
+    classifier = model.tmodel.fc
+    in_features = classifier.in_features
+
     # load the model
     if os.path.isfile(path):
         model.load_state_dict(torch.load(path))
+
+    # add the last classfication head to the shared model
+    model.tmodel.fc = nn.Linear(in_features, no_classes)
 
     # load the reg_params stored
     if os.path.isfile(path_to_reg):
@@ -278,7 +286,7 @@ def save_model(model, task_no, epoch_accuracy):
     # out_features = model.tmodel.classifier[-1].out_features
 
     # 针对 SRNet 的情况
-    classifier = model.tmodel.fc1
+    classifier = model.tmodel.fc
     in_features = classifier.in_features
     out_features = classifier.out_features
 
@@ -306,7 +314,6 @@ def save_model(model, task_no, epoch_accuracy):
     # save the performance of the model on the task to later determine the forgetting metric
     with open(os.path.join(path_to_head, "performance.txt"), 'w') as file1:
         # input_to_txtfile = str(epoch_accuracy.item())
-        print("epoch_accuracy :{}".format(epoch_accuracy))
         input_to_txtfile = str(epoch_accuracy.item() if torch.is_tensor(epoch_accuracy) else epoch_accuracy)
         file1.write(input_to_txtfile)
         file1.close()

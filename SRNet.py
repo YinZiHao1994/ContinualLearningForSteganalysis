@@ -230,7 +230,7 @@ class SRNet(nn.Module):
         # avgp = torch.mean() in forward before fc
         # Fully Connected layer
         self.fc = nn.Linear(512 * 1 * 1, 2)
-        self.fc1 = nn.Linear(int(512 * (512 + 1) / 2), 2)
+        # self.fc1 = nn.Linear(int(512 * (512 + 1) / 2), 2)
 
     def forward(self, inputs):
         # Layer 1

@@ -155,7 +155,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             since = time.time()
             best_perform = 10e6
 
-            # print("Epoch {}/{}".format(epoch + 1, num_epochs))
+            # print("Epoch {}/{}".format(epoch, num_epochs))
             print("-" * 20)
             # print ("The training phase is ongoing")
 
