@@ -93,8 +93,9 @@ def compute_forgetting(model, task_no, dataloader, use_gpu):
 
     running_corrects = 0.0
     total = 0
-
-    for sample in dataloader:
+    for index, sample in enumerate(dataloader):
+        if index % 50 == 0:
+            print("sample {}/{} in dataloader".format(index, len(dataloader)))
         datas, labels = sample['data'], sample['label']
         shape = list(datas.size())
         datas = datas.reshape(shape[0] * shape[1], *shape[2:])

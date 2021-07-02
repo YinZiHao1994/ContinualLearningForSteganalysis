@@ -80,7 +80,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             start_epoch = checkpoint['epoch']
 
             print("Loading the model")
-            model = model_init(num_classes, use_gpu)
+            model = model_init(num_classes, use_gpu, True)
             model = model.load_state_dict(checkpoint['state_dict'])
 
             print("Loading the optimizer")

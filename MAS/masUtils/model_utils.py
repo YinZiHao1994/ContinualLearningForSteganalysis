@@ -183,7 +183,6 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-# all models are derived from the Alexnet architecture
 def get_pre_model(use_gpu=False, reuse_model=False):
     model_save_file_name = 'SRNET_model_boss_256_' + 'HILL' + '04.pth'
     model_save_path = os.path.join(MODEL_EXPORT_PATH, model_save_file_name)
@@ -196,6 +195,7 @@ def get_pre_model(use_gpu=False, reuse_model=False):
             print('model_save_path: {} 不存在'.format(model_save_path))
             model.apply(init_weights)
         else:
+            print('加载复用之前已保存的训练完的模型')
             model = torch.load(model_save_path, map_location=device)
     else:
         model.apply(init_weights)
@@ -246,7 +246,7 @@ def model_init(no_classes, use_gpu=False, reuse_model=True):
 
     # load the model
     if os.path.isfile(path):
-        print('加载复用之前已保存的训练完的模型')
+        print('加载 shared_model')
         model.load_state_dict(torch.load(path))
 
     # add the last classfication head to the shared model

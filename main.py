@@ -186,7 +186,6 @@ def main(steganography_enum):
     params_save_file_path = os.path.join(MODEL_EXPORT_PATH, params_save_file_name)
 
     model = SRNet().to(device)
-    model.apply(init_weights)
     # 加载复用之前已保存的训练完的模型
     if reuse_model:
         if not os.path.exists(model_save_path):
@@ -196,6 +195,7 @@ def main(steganography_enum):
             print('加载复用之前已保存的训练完的模型')
             model = torch.load(model_save_path, map_location=device)
 
+    model.apply(init_weights)
     model = train_model(device, model, params_save_file_path, train_loader, valid_loader)
     torch.save(model, model_save_path)
 
