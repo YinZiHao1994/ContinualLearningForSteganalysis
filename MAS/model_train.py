@@ -25,6 +25,7 @@ from MAS.masUtils.model_utils import *
 from MAS.masUtils.utils import *
 
 from MAS.optimizer_lib import *
+import dataAnalyze
 
 
 def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloader_train, dataloader_test, num_epochs,
@@ -96,11 +97,18 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
     # commencing the training loop
     epoch_accuracy = 0
+    loss_history = {x: [] for x in ['train', 'val']}
+    acc_history = {x: [] for x in ['train', 'val']}
+    counter = {x: [] for x in ['train', 'val']}
+    iteration_number = {x: 0 for x in ['train', 'val']}
+
+    since_time = time.time()
 
     for epoch in range(start_epoch, omega_epochs):
 
         # run the omega accumulation at convergence of the loss function
         if epoch == omega_epochs - 1:
+            phase = 'val'
             total = 0
             # no training of the model takes place in this epoch
             optimizer_ft = OmegaUpdate(model.reg_params)
@@ -138,21 +146,33 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
                 output = model.tmodel(data)
                 del data
-
+                loss = model_criterion(output, label)
                 # running_corrects += torch.sum(preds == labels.data)
                 prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
 
-                running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+                corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+                running_corrects += corrects
                 del labels
-                total += label.size(0)
-
+                data_num = label.size(0)
+                total += data_num
+                if index % 10 == 0:
+                    iteration_number[phase] += 10
+                    counter[phase].append(iteration_number[phase])
+                    loss_history[phase].append(loss.item())
+                    acc_history[phase].append(corrects / data_num)
+            diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
+            dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
+                                       "loss_" + phase + "_" + str(epoch))
+            dataAnalyze.save_accurate_plot(diagram_save_path, counter[phase], acc_history[phase],
+                                           "acc_" + phase + "_" + str(epoch))
             dataset_size = len(dataloader_test.dataset)
             epoch_accuracy = running_corrects / total
             print("valuate epoch_accuracy is {}".format(epoch_accuracy))
         else:
+            phase = 'train'
+
             total = 0
 
-            since = time.time()
             best_perform = 10e6
 
             # print("Epoch {}/{}".format(epoch, num_epochs))
@@ -202,18 +222,30 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                 optimizer.step(model.reg_params)
 
                 running_loss += loss.item()
-                del loss
 
                 # running_corrects += torch.sum(preds == labels.data)
                 prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
 
-                running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+                corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+                running_corrects += corrects
                 del labels
-                total += label.size(0)
+                data_num = label.size(0)
+                total += data_num
+
+                if index % 10 == 0:
+                    iteration_number[phase] += 10
+                    counter[phase].append(iteration_number[phase])
+                    loss_history[phase].append(loss.item())
+                    acc_history[phase].append(corrects / data_num)
 
             dataset_size = len(dataloader_train.dataset)
             epoch_loss = running_loss / total
             epoch_accuracy = running_corrects / total
+            diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
+            dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
+                                       "loss_" + phase + "_" + str(epoch))
+            dataAnalyze.save_accurate_plot(diagram_save_path, counter[phase], acc_history[phase],
+                                           "acc_" + phase + "_" + str(epoch))
 
             print('train epoch: {}/{}\n'
                   'Loss: {:.4f}\n'
@@ -231,5 +263,8 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
                 }, epoch_file_name)
 
+    time_elapsed = time.time() - since_time
+    print('Training complete in {:.0f}m {:.0f}s'.format(
+        time_elapsed // 60, time_elapsed % 60))
     # save the model and the performance
     save_model(model, task_no, epoch_accuracy)
