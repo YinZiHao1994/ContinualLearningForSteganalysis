@@ -40,7 +40,6 @@ LOG_PATH = 'data/log'
 MODEL_EXPORT_PATH = 'data/model_export'
 DATASET_DIR = r'D:\Work\dataset\steganalysis\BOSSBase'
 use_gpu = torch.cuda.is_available()
-reuse_model = True
 
 
 class SteganographyEnum(Enum):
@@ -49,17 +48,14 @@ class SteganographyEnum(Enum):
     UTGAN = 3
 
 
-def train_implement(model, device, train_loader, optimizer, epoch, steganography):
+def train_implement(model, device, train_loader, optimizer, epoch, steganography, diagram_data):
     # losses = steganalysis_utils.AverageMeter()
     model.train()
     train_loss = 0
     train_correct = 0
     total = 0
 
-    loss_history = []
-    acc_history = []
-    counter = []
-    iteration_number = 0
+    loss_history, acc_history, counter, iteration_number = diagram_data
 
     for i, sample in enumerate(train_loader):
 
@@ -105,7 +101,7 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
                                "loss_train" + "_" + str(epoch))
     dataAnalyze.save_accurate_plot(diagram_save_path, counter, acc_history,
                                    "acc_train" + "_" + str(epoch))
-    return model
+    return model, {loss_history, acc_history, counter, iteration_number}
 
 
 def evaluate(model, device, data_loader, epoch):
@@ -190,7 +186,7 @@ def set_logger(log_path, mode='a'):
         logger.addHandler(stream_handler)
 
 
-def main(steganography_enum):
+def main(steganography_enum, reuse_model):
     device = torch.device("cuda" if use_gpu else "cpu")
     init_logger(steganography_enum)
 
@@ -233,9 +229,15 @@ def train_model(device, model, params_save_file_path, train_loader, valid_loader
     optimizer = optim.SGD(param_groups, lr=LR, momentum=0.9, weight_decay=0.0005)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STETSIZE, gamma=scheduler_gama)
 
+    loss_history = []
+    acc_history = []
+    counter = []
+    iteration_number = 0
+    diagram_data = {loss_history, acc_history, counter, iteration_number}
     for epoch in range(1, EPOCHS + 1):
         # scheduler.step()
-        model = train_implement(model, device, train_loader, optimizer, epoch, steganography)
+        model, diagram_data = train_implement(model, device, train_loader, optimizer, epoch, steganography,
+                                              diagram_data)
         if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
             evaluate(model, device, valid_loader, epoch)
         print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
@@ -298,4 +300,4 @@ def generate_data_loaders(steganography_enum):
 
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    main(SteganographyEnum.HILL)
+    main(SteganographyEnum.HILL, True)
