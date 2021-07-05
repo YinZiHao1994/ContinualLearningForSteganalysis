@@ -244,7 +244,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             scheduler.step()
 
             dataset_size = len(dataloader_train.dataset)
-            epoch_loss = running_loss / total
+            epoch_loss = running_loss / dataset_size
             epoch_accuracy = running_corrects / total
             diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
             dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
