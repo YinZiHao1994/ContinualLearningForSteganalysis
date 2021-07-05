@@ -183,7 +183,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             running_corrects = 0.0
 
             # scales the optimizer every 20 epochs
-            optimizer = exp_lr_scheduler(optimizer, epoch, lr, 40)
+            scheduler = exp_lr_scheduler(optimizer, epoch, lr, 40)
 
             model.tmodel.train(True)
 
@@ -237,6 +237,8 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                     counter[phase].append(iteration_number[phase])
                     loss_history[phase].append(loss.item())
                     acc_history[phase].append(corrects / data_num)
+
+            scheduler.step()
 
             dataset_size = len(dataloader_train.dataset)
             epoch_loss = running_loss / total
