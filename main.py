@@ -55,7 +55,7 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
     train_correct = 0
     total = 0
 
-    loss_history, acc_history, counter, iteration_number = diagram_data
+    loss_history, acc_history, counter = diagram_data.loss_history, diagram_data.acc_history, diagram_data.counter,
 
     for i, sample in enumerate(train_loader):
 
@@ -85,8 +85,8 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
         train_correct += corrects
 
         if i % 10 == 0:
-            iteration_number += 10
-            counter.append(iteration_number)
+            diagram_data.iteration_number += 10
+            counter.append(diagram_data.iteration_number)
             loss_history.append(loss.item())
             acc_history.append(corrects / data_num)
 
@@ -101,7 +101,7 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
                                "loss_train" + "_" + str(epoch))
     dataAnalyze.save_accurate_plot(diagram_save_path, counter, acc_history,
                                    "acc_train" + "_" + str(epoch))
-    return model, {loss_history, acc_history, counter, iteration_number}
+    return model
 
 
 def evaluate(model, device, data_loader, epoch):
@@ -218,6 +218,14 @@ def main(steganography_enum, reuse_model):
     evaluate(model, device, test_loader, EPOCHS)
 
 
+class DiagramData:
+    def __init__(self, loss_history, acc_history, counter, iteration_number):
+        self.loss_history = loss_history
+        self.acc_history = acc_history
+        self.counter = counter
+        self.iteration_number = iteration_number
+
+
 def train_model(device, model, params_save_file_path, train_loader, valid_loader, steganography):
     params = model.parameters()
     params_wd, params_rest = [], []
@@ -233,11 +241,10 @@ def train_model(device, model, params_save_file_path, train_loader, valid_loader
     acc_history = []
     counter = []
     iteration_number = 0
-    diagram_data = {loss_history, acc_history, counter, iteration_number}
+    diagram_data = DiagramData(loss_history, acc_history, counter, iteration_number)
     for epoch in range(1, EPOCHS + 1):
         # scheduler.step()
-        model, diagram_data = train_implement(model, device, train_loader, optimizer, epoch, steganography,
-                                              diagram_data)
+        model = train_implement(model, device, train_loader, optimizer, epoch, steganography, diagram_data)
         if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
             evaluate(model, device, valid_loader, epoch)
         print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
@@ -300,4 +307,4 @@ def generate_data_loaders(steganography_enum):
 
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    main(SteganographyEnum.HILL, True)
+    main(SteganographyEnum.HILL, False)
