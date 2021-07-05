@@ -23,6 +23,7 @@ from SRNet import SRNet
 from enum import Enum
 from dataset import MyDataset
 import steganalysis_utils
+import dataAnalyze
 
 BATCH_SIZE = 32
 EPOCHS = 100
@@ -48,12 +49,17 @@ class SteganographyEnum(Enum):
     UTGAN = 3
 
 
-def train_implement(model, device, train_loader, optimizer, epoch):
+def train_implement(model, device, train_loader, optimizer, epoch, steganography):
     # losses = steganalysis_utils.AverageMeter()
     model.train()
     train_loss = 0
     train_correct = 0
     total = 0
+
+    loss_history = []
+    acc_history = []
+    counter = []
+    iteration_number = 0
 
     for i, sample in enumerate(train_loader):
 
@@ -77,8 +83,16 @@ def train_implement(model, device, train_loader, optimizer, epoch):
         optimizer.step()
         train_loss += loss.item()
         prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
-        total += label.size(0)
-        train_correct += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+        data_num = label.size(0)
+        total += data_num
+        corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+        train_correct += corrects
+
+        if i % 10 == 0:
+            iteration_number += 10
+            counter.append(iteration_number)
+            loss_history.append(loss.item())
+            acc_history.append(corrects / data_num)
 
         if i % TRAIN_PRINT_FREQUENCY == 0:
             logging.info('train epoch: [{0}][{1}/{2}]\t'
@@ -86,6 +100,11 @@ def train_implement(model, device, train_loader, optimizer, epoch):
                          'Loss {loss:.4f} \t'
                          .format(epoch, i, len(train_loader), acc=100. * train_correct / total,
                                  loss=train_loss / (i + 1)))
+    diagram_save_path = os.path.join(os.getcwd(), "diagram", steganography.name)
+    dataAnalyze.save_loss_plot(diagram_save_path, counter, loss_history,
+                               "loss_train" + "_" + str(epoch))
+    dataAnalyze.save_accurate_plot(diagram_save_path, counter, acc_history,
+                                   "acc_train" + "_" + str(epoch))
     return model
 
 
@@ -196,14 +215,14 @@ def main(steganography_enum):
             model = torch.load(model_save_path, map_location=device)
 
     model.apply(init_weights)
-    model = train_model(device, model, params_save_file_path, train_loader, valid_loader)
+    model = train_model(device, model, params_save_file_path, train_loader, valid_loader, steganography_enum)
     torch.save(model, model_save_path)
 
     logging.info('\nTest model')
     evaluate(model, device, test_loader, EPOCHS)
 
 
-def train_model(device, model, params_save_file_path, train_loader, valid_loader):
+def train_model(device, model, params_save_file_path, train_loader, valid_loader, steganography):
     params = model.parameters()
     params_wd, params_rest = [], []
     for param_item in params:
@@ -216,7 +235,7 @@ def train_model(device, model, params_save_file_path, train_loader, valid_loader
 
     for epoch in range(1, EPOCHS + 1):
         # scheduler.step()
-        model = train_implement(model, device, train_loader, optimizer, epoch)
+        model = train_implement(model, device, train_loader, optimizer, epoch, steganography)
         if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
             evaluate(model, device, valid_loader, epoch)
         print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
