@@ -183,7 +183,10 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             running_corrects = 0.0
 
             # scales the optimizer every 20 epochs
-            scheduler = exp_lr_scheduler(optimizer, epoch, lr, 40)
+            # scheduler = exp_lr_scheduler(optimizer, epoch, lr, 40)
+            step_size = 14
+            scheduler_gama = 0.40
+            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
 
             model.tmodel.train(True)
 
