@@ -224,15 +224,14 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
                 optimizer.step(model.reg_params)
 
-                running_loss += loss.item()
-
+                data_num = label.size(0)
+                running_loss += loss.item() * data_num
                 # running_corrects += torch.sum(preds == labels.data)
                 prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
 
                 corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
                 running_corrects += corrects
                 del labels
-                data_num = label.size(0)
                 total += data_num
 
                 if index % 10 == 0:
@@ -244,7 +243,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             scheduler.step()
 
             dataset_size = len(dataloader_train.dataset)
-            epoch_loss = running_loss / dataset_size
+            epoch_loss = running_loss / total
             epoch_accuracy = running_corrects / total
             diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
             dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
