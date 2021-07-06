@@ -113,7 +113,7 @@ def generate_data_loaders(steganography_enum):
     return test_loader, train_loader, valid_loader
 
 
-def main(steganography_enums):
+def main(steganography_enums, reuse_model):
     device = torch.device("cuda" if use_gpu else "cpu")
 
     for steganography_enum in steganography_enums:
@@ -135,7 +135,7 @@ def main(steganography_enums):
         # no_of_classes = dataloader_train.dataset.classes
         no_of_classes = 2
 
-        model = model_utils.model_init(no_of_classes, use_gpu)
+        model = model_utils.model_init(no_of_classes, use_gpu, reuse_model)
 
         mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr,
                       reg_lambda, use_gpu)
@@ -162,4 +162,4 @@ def main(steganography_enums):
 
 
 if __name__ == '__main__':
-    main([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
+    main([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN], False)
