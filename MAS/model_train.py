@@ -104,6 +104,9 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
     since_time = time.time()
 
+    step_size = 15
+    scheduler_gama = 0.50
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
     for epoch in range(start_epoch, omega_epochs):
 
         # run the omega accumulation at convergence of the loss function
@@ -184,9 +187,6 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
             # scales the optimizer every 20 epochs
             # scheduler = exp_lr_scheduler(optimizer, epoch, lr, 40)
-            step_size = 14
-            scheduler_gama = 0.40
-            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
 
             model.tmodel.train(True)
 
