@@ -128,7 +128,7 @@ def model_inference(task_no, use_gpu=False):
     returns a reference to the model is used for testing the process
 
     """
-
+    device = torch.device("cuda" if use_gpu else "cpu")
     pre_model = get_pre_model(use_gpu, False)
     model = SharedModel(pre_model)
 
@@ -156,7 +156,7 @@ def model_inference(task_no, use_gpu=False):
     classification_head.load_state_dict(torch.load(os.path.join(path_to_head, "head.pth")))
 
     # load the trained shared model
-    model.load_state_dict(torch.load(os.path.join(path_to_model, "shared_model.pth")))
+    model.load_state_dict(torch.load(os.path.join(path_to_model, "shared_model.pth"), map_location=device))
 
     # model.tmodel.classifier.add_module('6', nn.Linear(in_features, num_classes))
     model.tmodel.fc = nn.Linear(in_features, num_classes)
@@ -218,7 +218,7 @@ def model_init(no_classes, use_gpu=False, reuse_model=True):
     :param reuse_model:
 
     """
-
+    device = torch.device("cuda" if use_gpu else "cpu")
     path = os.path.join(os.getcwd(), "models", "shared_model.pth")
     path_to_reg = os.path.join(os.getcwd(), "models", "reg_params.pickle")
 
@@ -247,7 +247,7 @@ def model_init(no_classes, use_gpu=False, reuse_model=True):
     # load the model
     if os.path.isfile(path):
         print('加载 shared_model')
-        model.load_state_dict(torch.load(path))
+        model.load_state_dict(torch.load(path, map_location=device))
 
     # add the last classfication head to the shared model
     model.tmodel.fc = nn.Linear(in_features, no_classes)
