@@ -253,7 +253,10 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
             print('train epoch: {}/{}\n'
                   'Loss: {:.4f}\n'
-                  'Acc: {:.4f}'.format(epoch + 1, num_epochs, epoch_loss, epoch_accuracy))
+                  'Acc: {:.4f}\n'
+                  'lr:{}'
+                  .format(epoch + 1, num_epochs, epoch_loss, epoch_accuracy,
+                          optimizer.state_dict()['param_groups'][0]['lr']))
 
             # avoid saving a file twice
             if epoch != 0 and epoch != num_epochs - 1 and (epoch + 1) % 10 == 0:

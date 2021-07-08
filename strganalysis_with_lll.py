@@ -36,7 +36,7 @@ use_gpu = torch.cuda.is_available()
 
 num_epochs = 100
 num_freeze_layers = 0
-lr = 0.001
+lr = 0.01
 reg_lambda = 1
 
 train_dset_loaders = []

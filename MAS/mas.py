@@ -59,7 +59,9 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
         model = init_reg_params_across_tasks(model, use_gpu)
 
     # get the optimizer
-    optimizer_sp = LocalSgd(model.tmodel.parameters(), reg_lambda, lr)
+    momentum = 0.9
+    weight_decay = 0.0005
+    optimizer_sp = LocalSgd(model.tmodel.parameters(), reg_lambda, lr, momentum=momentum, weight_decay=weight_decay)
     train_model(model, task_no, no_of_classes, optimizer_sp, model_criterion, dataloader_train, dataloader_test,
                 num_epochs, use_gpu, lr, reg_lambda)
 
