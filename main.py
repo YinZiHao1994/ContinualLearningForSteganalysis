@@ -104,7 +104,7 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
     return model
 
 
-def evaluate(model, device, data_loader, epoch):
+def evaluate(model, device, data_loader):
     logging.info('start evaluate')
     model.eval()
     test_loss = 0.0
@@ -151,8 +151,7 @@ def evaluate(model, device, data_loader, epoch):
 
     logging.info('-' * 8)
     test_loss = test_loss / batch_num
-    logging.info('Test in epoch {}'.format(epoch))
-    logging.info('Test loss: {:.4f}'.format(test_loss))
+    logging.info('Evaluate loss: {:.4f}'.format(test_loss))
     logging.info('Eval accuracy: {:.4f}'.format(accuracy))
     logging.info('Best accuracy:{:.4f}'.format(best_acc))
     logging.info('-' * 8)
@@ -186,74 +185,72 @@ def set_logger(log_path, mode='a'):
         logger.addHandler(stream_handler)
 
 
-def main(steganography_enum, reuse_model):
+def individual_learn(target_steganography, reuse_model, reused_steganography=None):
+    """
+    训练一种隐写分析算法模型。
+    :param target_steganography:希望分析的隐写算法
+    :param reuse_model: 是否在之前已保存的模型基础上继续训练
+    :param reused_steganography: 之前已保存的模型。如果 @reuse_model 参数是 False，此参数可以不传。如果 @reuse_model 参数是 True，
+    此参数又为空，默认赋值为 @target_steganography 的值
+    """
     device = torch.device("cuda" if use_gpu else "cpu")
-    init_logger(steganography_enum)
+    init_logger(target_steganography)
 
-    test_loader, train_loader, valid_loader = generate_data_loaders(steganography_enum)
+    test_loader, train_loader, valid_loader = generate_data_loaders(target_steganography)
 
     if not os.path.exists(MODEL_EXPORT_PATH):
         os.makedirs(MODEL_EXPORT_PATH)
     # model_save_file_name = 'SRNET_model_params_boss_256_HILL04.pt'
-    model_save_file_name = 'SRNET_model_boss_256_' + steganography_enum.name + '04.pth'
-    model_save_path = os.path.join(MODEL_EXPORT_PATH, model_save_file_name)
-    params_save_file_name = 'SRNET_model_params_boss_256_' + steganography_enum.name + '04.tar'
+    model = generate_model(device, target_steganography, reuse_model, reused_steganography)
+    target_model_save_file_name = 'SRNET_model_boss_256_' + target_steganography.name + '04.pth'
+    target_model_save_path = os.path.join(MODEL_EXPORT_PATH, target_model_save_file_name)
+    params_save_file_name = 'SRNET_model_params_boss_256_' + target_steganography.name + '04.tar'
     params_save_file_path = os.path.join(MODEL_EXPORT_PATH, params_save_file_name)
 
+    model = train_model(device, model, params_save_file_path, train_loader, valid_loader, target_steganography)
+    torch.save(model, target_model_save_path)
+
+    logging.info('\nTest model {}'.format(target_steganography.name))
+    evaluate(model, device, test_loader)
+
+
+def generate_model(device, target_steganography, reuse_model, reused_steganography):
     model = SRNet().to(device)
     model.apply(init_weights)
     # 加载复用之前已保存的训练完的模型
     if reuse_model:
-        if not os.path.exists(model_save_path):
+        if reused_steganography is None:
+            print("选择了希望复用模型，但没有指定具体的复用模型，将使用目标模型: {}".format(target_steganography.name))
+            reused_steganography = target_steganography
+        reused_model_save_file_name = 'SRNET_model_boss_256_' + reused_steganography.name + '04.pth'
+        reused_model_save_path = os.path.join(MODEL_EXPORT_PATH, reused_model_save_file_name)
+        if not os.path.exists(reused_model_save_path):
             # raise RuntimeError('model_save_path 不存在')
-            print('model_save_path: {} 不存在'.format(model_save_path))
+            print('reused_model_save_path: {} 不存在'.format(reused_model_save_path))
         else:
-            print('加载复用之前已保存的训练完的模型')
-            model = torch.load(model_save_path, map_location=device)
-
-    model = train_model(device, model, params_save_file_path, train_loader, valid_loader, steganography_enum)
-    torch.save(model, model_save_path)
-
-    logging.info('\nsteganography_enum.name Test model')
-    evaluate(model, device, test_loader, EPOCHS)
+            print('加载复用之前已保存的训练完的模型: {}'.format(reused_model_save_path))
+            model = torch.load(reused_model_save_path, map_location=device)
+    return model
 
 
-def transfer_learning(steganography_list, reuse_model):
+def transfer_learning(steganography_list):
     device = torch.device("cuda" if use_gpu else "cpu")
+    # 迁移学习训练
     for index, steganography_enum in enumerate(steganography_list):
-        init_logger(steganography_enum)
-
-        test_loader, train_loader, valid_loader = generate_data_loaders(steganography_enum)
-
-        if not os.path.exists(MODEL_EXPORT_PATH):
-            os.makedirs(MODEL_EXPORT_PATH)
-        # model_save_file_name = 'SRNET_model_params_boss_256_HILL04.pt'
-        pre_model_save_path = ''
+        pre_steganography = None
         if index > 0:
             pre_steganography = steganography_list[index - 1]
-            pre_model_save_file_name = 'SRNET_model_boss_256_' + pre_steganography.name + '04.pth'
-            pre_model_save_path = os.path.join(MODEL_EXPORT_PATH, pre_model_save_file_name)
-        model_save_file_name = 'SRNET_model_boss_256_' + steganography_enum.name + '04.pth'
-        model_save_path = os.path.join(MODEL_EXPORT_PATH, model_save_file_name)
-        params_save_file_name = 'SRNET_model_params_boss_256_' + steganography_enum.name + '04.tar'
-        params_save_file_path = os.path.join(MODEL_EXPORT_PATH, params_save_file_name)
+        individual_learn(steganography_enum, True, pre_steganography)
 
-        model = SRNet().to(device)
-        model.apply(init_weights)
-        # 加载复用之前已保存的训练完的模型
-        if reuse_model:
-            if not os.path.exists(pre_model_save_path):
-                # raise RuntimeError('model_save_path 不存在')
-                print('model_save_path: {} 不存在'.format(pre_model_save_path))
-            else:
-                print('加载复用之前已保存的训练完的模型')
-                model = torch.load(pre_model_save_path, map_location=device)
-
-        model = train_model(device, model, params_save_file_path, train_loader, valid_loader, steganography_enum)
-        torch.save(model, model_save_path)
-
-        logging.info('\n{} Test model'.format(steganography_enum.name))
-        evaluate(model, device, test_loader, EPOCHS)
+    # 迁移学习结束之后用最后得到的模型回头测试前面的任务表现
+    last_steganography = steganography_list[-1]
+    for steganography_enum in steganography_list:
+        test_loader, train_loader, valid_loader = generate_data_loaders(steganography_enum)
+        model = generate_model(device, None, True, last_steganography)
+        logging.info(
+            'Test transfer learning {} model\'s performance in former steganography {}'.format(last_steganography.name,
+                                                                                               steganography_enum.name))
+        evaluate(model, device, test_loader)
 
 
 class DiagramData:
@@ -284,7 +281,8 @@ def train_model(device, model, params_save_file_path, train_loader, valid_loader
         # scheduler.step()
         model = train_implement(model, device, train_loader, optimizer, epoch, steganography, diagram_data)
         if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
-            evaluate(model, device, valid_loader, epoch)
+            logging.info('Evaluate in epoch {}'.format(epoch))
+            evaluate(model, device, valid_loader)
         print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
         scheduler.step()
 
@@ -345,4 +343,5 @@ def generate_data_loaders(steganography_enum):
 
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    main(SteganographyEnum.HILL, False)
+    individual_learn(SteganographyEnum.HILL, False, SteganographyEnum.HILL)
+    # transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
