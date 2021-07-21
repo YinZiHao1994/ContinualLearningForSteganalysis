@@ -92,7 +92,7 @@ def generate_data_loaders(steganography_enum):
 
     dataset = MyDataset(dataset_dir=DATASET_DIR, steganography_enum=steganography_enum, transform=transform)
     test_size_ratio = 0.2
-    valid_size_ratio = 0.1
+    valid_size_ratio = 0.2
     dataset_size = len(dataset)
     indices_data = list(range(dataset_size))
     np.random.shuffle(indices_data)
