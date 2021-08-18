@@ -25,6 +25,7 @@ from dataset import MyDataset
 import steganalysis_utils
 from MAS import mas
 from MAS.masUtils import utils, model_utils
+from common import DatasetEnum, SteganographyEnum
 
 BATCH_SIZE = 32
 # DECAY_EPOCH = [30, 60, 90, 140, 200, 250, 300, 350]
@@ -44,12 +45,6 @@ valid_dset_loaders = []
 test_dset_loaders = []
 
 
-class SteganographyEnum(Enum):
-    HILL = 1
-    SUNI = 2
-    UTGAN = 3
-
-
 def set_logger(log_path, mode='a'):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -66,17 +61,17 @@ def set_logger(log_path, mode='a'):
         logger.addHandler(stream_handler)
 
 
-def init_logger(steganography_enum):
+def init_logger(dataset_enum, steganography_enum):
     # Log files
     # log_name = 'SRNET_params_boss_256_HILL04.log'
-    log_name = 'SRNET_params_boss_256_' + steganography_enum.name + '04.log'
+    log_name = 'SRNET_params_' + dataset_enum.name + '_' + steganography_enum.name + '04.log'
     log_path = os.path.join(LOG_PATH, log_name)
     if not os.path.exists(LOG_PATH):
         os.makedirs(LOG_PATH)
     set_logger(log_path, mode='w')
 
 
-def generate_data_loaders(steganography_enum):
+def generate_data_loaders(dataset_enum, steganography_enum):
     kwargs = {'num_workers': 1, 'pin_memory': True}
     train_transform = transforms.Compose([
         steganalysis_utils.AugData(),
@@ -90,7 +85,7 @@ def generate_data_loaders(steganography_enum):
         transforms.Normalize((0.5,), (0.5,))
     ])
 
-    dataset = MyDataset(dataset_dir=DATASET_DIR, steganography_enum=steganography_enum, transform=transform)
+    dataset = MyDataset(dataset_enum=dataset_enum, steganography_enum=steganography_enum, transform=transform)
     test_size_ratio = 0.2
     valid_size_ratio = 0.2
     dataset_size = len(dataset)
@@ -113,12 +108,14 @@ def generate_data_loaders(steganography_enum):
     return test_loader, train_loader, valid_loader
 
 
-def main(steganography_enums, reuse_model):
+def main(dataset_steganography_list, reuse_model):
     device = torch.device("cuda" if use_gpu else "cpu")
 
-    for steganography_enum in steganography_enums:
-        init_logger(steganography_enum)
-        test_loader, train_loader, valid_loader = generate_data_loaders(steganography_enum)
+    for dataset_steganography in dataset_steganography_list:
+        dataset_enum = dataset_steganography['dataset']
+        steganography_enum = dataset_steganography['steganography']
+        init_logger(dataset_enum, steganography_enum)
+        test_loader, train_loader, valid_loader = generate_data_loaders(dataset_enum, steganography_enum)
         train_dset_loaders.append(train_loader)
         valid_dset_loaders.append(valid_loader)
         test_dset_loaders.append(test_loader)
@@ -162,4 +159,6 @@ def main(steganography_enums, reuse_model):
 
 
 if __name__ == '__main__':
-    main([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN], False)
+    # main([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN], False)
+    main([{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+          {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}], False)

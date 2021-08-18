@@ -3,7 +3,7 @@
 import os
 import argparse
 import numpy as np
-import pandas as pd
+# import pandas as pd
 from pathlib import Path
 import copy
 import logging
@@ -24,6 +24,7 @@ from enum import Enum
 from dataset import MyDataset
 import steganalysis_utils
 import dataAnalyze
+from common import DatasetEnum, SteganographyEnum
 
 BATCH_SIZE = 32
 EPOCHS = 100
@@ -38,14 +39,8 @@ scheduler_gama = 0.40
 DECAY_EPOCH = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190]
 LOG_PATH = 'data/log'
 MODEL_EXPORT_PATH = 'data/model_export'
-DATASET_DIR = r'D:\Work\dataset\steganalysis\BOSSBase'
+# DATASET_DIR = r'D:\Work\dataset\steganalysis\BOSSBase'
 use_gpu = torch.cuda.is_available()
-
-
-class SteganographyEnum(Enum):
-    HILL = 1
-    SUNI = 2
-    UTGAN = 3
 
 
 def train_implement(model, device, train_loader, optimizer, epoch, steganography, diagram_data):
@@ -185,26 +180,29 @@ def set_logger(log_path, mode='a'):
         logger.addHandler(stream_handler)
 
 
-def individual_learn(target_steganography, reuse_model, reused_steganography=None):
+def individual_learn(target_dataset, target_steganography, reuse_model, reused_steganography=None, reused_dataset=None):
     """
     训练一种隐写分析算法模型。
+    :param target_dataset: 所使用的数据集
     :param target_steganography:希望分析的隐写算法
     :param reuse_model: 是否在之前已保存的模型基础上继续训练
-    :param reused_steganography: 之前已保存的模型。如果 @reuse_model 参数是 False，此参数可以不传。如果 @reuse_model 参数是 True，
+    :param reused_steganography: 之前已保存的模型所使用的隐写方法。如果 @reuse_model 参数是 False，此参数可以不传。如果 @reuse_model 参数是 True，
     此参数又为空，默认赋值为 @target_steganography 的值
+    :param reused_dataset: 之前已保存的模型所使用的数据集。如果 @reuse_model 参数是 False，此参数可以不传。
     """
     device = torch.device("cuda" if use_gpu else "cpu")
-    init_logger(target_steganography)
+    init_logger(target_dataset, target_steganography)
 
-    test_loader, train_loader, valid_loader = generate_data_loaders(target_steganography)
+    test_loader, train_loader, valid_loader = generate_data_loaders(target_dataset, target_steganography)
 
     if not os.path.exists(MODEL_EXPORT_PATH):
         os.makedirs(MODEL_EXPORT_PATH)
     # model_save_file_name = 'SRNET_model_params_boss_256_HILL04.pt'
-    model = generate_model(device, target_steganography, reuse_model, reused_steganography)
-    target_model_save_file_name = 'SRNET_model_boss_256_' + target_steganography.name + '04.pth'
+    model = generate_model(device, target_dataset, target_steganography, reuse_model, reused_steganography,
+                           reused_dataset)
+    target_model_save_file_name = generate_model_save_file_name(target_dataset, target_steganography)
     target_model_save_path = os.path.join(MODEL_EXPORT_PATH, target_model_save_file_name)
-    params_save_file_name = 'SRNET_model_params_boss_256_' + target_steganography.name + '04.tar'
+    params_save_file_name = 'SRNET_model_params_' + target_dataset.name + '_' + target_steganography.name + '04.tar'
     params_save_file_path = os.path.join(MODEL_EXPORT_PATH, params_save_file_name)
 
     model = train_model(device, model, params_save_file_path, train_loader, valid_loader, target_steganography)
@@ -214,15 +212,23 @@ def individual_learn(target_steganography, reuse_model, reused_steganography=Non
     evaluate(model, device, test_loader)
 
 
-def generate_model(device, target_steganography, reuse_model, reused_steganography):
+def generate_model_save_file_name(dataset_enum, steganography_enum):
+    model_save_file_name = 'SRNET_model_' + dataset_enum.name + '_' + steganography_enum.name + '04.pth'
+    return model_save_file_name
+
+
+def generate_model(device, target_dataset, target_steganography, reuse_model, reused_steganography, reused_dataset):
     model = SRNet().to(device)
     model.apply(init_weights)
     # 加载复用之前已保存的训练完的模型
     if reuse_model:
         if reused_steganography is None:
-            print("选择了希望复用模型，但没有指定具体的复用模型，将使用目标模型: {}".format(target_steganography.name))
+            print("选择了希望复用模型，但没有指定具体的复用模型，将使用目标隐写算法: {}".format(target_steganography.name))
             reused_steganography = target_steganography
-        reused_model_save_file_name = 'SRNET_model_boss_256_' + reused_steganography.name + '04.pth'
+        if reused_dataset is None:
+            print('选择了希望复用模型，但没有指定复用模型的数据集，将使用目标数据集: {}'.format(target_dataset.name))
+            reused_dataset = target_dataset
+        reused_model_save_file_name = generate_model_save_file_name(reused_dataset, reused_steganography)
         reused_model_save_path = os.path.join(MODEL_EXPORT_PATH, reused_model_save_file_name)
         if not os.path.exists(reused_model_save_path):
             # raise RuntimeError('model_save_path 不存在')
@@ -233,20 +239,30 @@ def generate_model(device, target_steganography, reuse_model, reused_steganograp
     return model
 
 
-def transfer_learning(steganography_list):
+def transfer_learning(dataset_steganography_list):
     device = torch.device("cuda" if use_gpu else "cpu")
     # 迁移学习训练
-    for index, steganography_enum in enumerate(steganography_list):
+    for index, dataset_steganography in enumerate(dataset_steganography_list):
+        pre_dataset = None
         pre_steganography = None
+        dataset_enum = dataset_steganography['dataset']
+        steganography_enum = dataset_steganography['steganography']
         if index > 0:
-            pre_steganography = steganography_list[index - 1]
-        individual_learn(steganography_enum, True, pre_steganography)
+            pre_dataset_steganography = dataset_steganography_list[index - 1]
+            pre_dataset = pre_dataset_steganography['dataset']
+            pre_steganography = pre_dataset_steganography['steganography']
+        individual_learn(dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
 
     # 迁移学习结束之后用最后得到的模型回头测试前面的任务表现
-    last_steganography = steganography_list[-1]
-    for steganography_enum in steganography_list:
-        test_loader, train_loader, valid_loader = generate_data_loaders(steganography_enum)
-        model = generate_model(device, None, True, last_steganography)
+    last_dataset_steganography = dataset_steganography_list[-1]
+    last_dataset = last_dataset_steganography['dataset']
+    last_steganography = last_dataset_steganography['steganography']
+    for dataset_steganography in dataset_steganography_list:
+        dataset_enum = dataset_steganography['dataset']
+        steganography_enum = dataset_steganography['steganography']
+        test_loader, train_loader, valid_loader = generate_data_loaders(dataset_enum, steganography_enum)
+
+        model = generate_model(device, None, None, True, last_steganography, last_dataset)
         logging.info(
             'Test transfer learning {} model\'s performance in former steganography {}'.format(last_steganography.name,
                                                                                                steganography_enum.name))
@@ -294,17 +310,17 @@ def train_model(device, model, params_save_file_path, train_loader, valid_loader
     return model
 
 
-def init_logger(steganography_enum):
+def init_logger(dataset_enum, steganography_enum):
     # Log files
     # log_name = 'SRNET_params_boss_256_HILL04.log'
-    log_name = 'SRNET_params_boss_256_' + steganography_enum.name + '04.log'
+    log_name = 'SRNET_params_' + dataset_enum.name + '_' + steganography_enum.name + '04.log'
     log_path = os.path.join(LOG_PATH, log_name)
     if not os.path.exists(LOG_PATH):
         os.makedirs(LOG_PATH)
     set_logger(log_path, mode='w')
 
 
-def generate_data_loaders(steganography_enum):
+def generate_data_loaders(dataset_enum, steganography_enum):
     kwargs = {'num_workers': 1, 'pin_memory': True}
     train_transform = transforms.Compose([
         steganalysis_utils.AugData(),
@@ -318,7 +334,7 @@ def generate_data_loaders(steganography_enum):
         transforms.Normalize((0.5,), (0.5,))
     ])
 
-    dataset = MyDataset(dataset_dir=DATASET_DIR, steganography_enum=steganography_enum, transform=transform)
+    dataset = MyDataset(dataset_enum=dataset_enum, steganography_enum=steganography_enum, transform=transform)
     test_size_ratio = 0.2
     valid_size_ratio = 0.1
     dataset_size = len(dataset)
@@ -343,5 +359,7 @@ def generate_data_loaders(steganography_enum):
 
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    individual_learn(SteganographyEnum.HILL, False, SteganographyEnum.HILL)
+    # individual_learn(SteganographyEnum.HILL, False, SteganographyEnum.HILL)
     # transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
+    transfer_learning([{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+                       {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}])

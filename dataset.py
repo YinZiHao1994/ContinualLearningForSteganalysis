@@ -7,12 +7,18 @@ from PIL import Image
 
 
 class MyDataset(Dataset):
-    def __init__(self, dataset_dir, steganography_enum, transform=None):
+    def __init__(self, dataset_enum, steganography_enum, transform=None):
         self.transform = transform
 
-        self.cover_dir = os.path.join(dataset_dir, 'BOSSBase_256')
+        self.cover_dir = os.path.join(dataset_enum.value, dataset_enum.name)
         # self.stego_dir = DATASET_DIR + '/stego_suniward04'
-        self.stego_dir = os.path.join(dataset_dir, 'BOSSBase_256_' + steganography_enum.name + '04')
+        self.stego_dir = os.path.join(dataset_enum.value, dataset_enum.name + '_' + steganography_enum.name + '04')
+        print("cover_dir is {}".format(self.cover_dir))
+        print("stego_dir is {}".format(self.stego_dir))
+        if not os.path.exists(self.cover_dir):
+            raise RuntimeError('cover_dir 不存在')
+        if not os.path.exists(self.stego_dir):
+            raise RuntimeError('stego_dir 不存在')
 
         self.cover_list = [x.split('\\')[-1] for x in glob(self.cover_dir + '/*')]
         assert len(self.cover_list) != 0, "cover_dir is empty"
