@@ -27,7 +27,7 @@ import dataAnalyze
 from common import DatasetEnum, SteganographyEnum
 
 BATCH_SIZE = 32
-EPOCHS = 100
+EPOCHS = 60
 LR = 0.01
 WEIGHT_DECAY = 5e-4
 TRAIN_PRINT_FREQUENCY = 50
@@ -253,6 +253,9 @@ def transfer_learning(dataset_steganography_list):
             pre_steganography = pre_dataset_steganography['steganography']
         individual_learn(dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
 
+    # 释放显存
+    if hasattr(torch.cuda, 'empty_cache'):
+        torch.cuda.empty_cache()
     # 迁移学习结束之后用最后得到的模型回头测试前面的任务表现
     last_dataset_steganography = dataset_steganography_list[-1]
     last_dataset = last_dataset_steganography['dataset']
@@ -264,8 +267,10 @@ def transfer_learning(dataset_steganography_list):
 
         model = generate_model(device, None, None, True, last_steganography, last_dataset)
         logging.info(
-            'Test transfer learning {} model\'s performance in former steganography {}'.format(last_steganography.name,
-                                                                                               steganography_enum.name))
+            'Test transfer learning {}-{}model\'s performance in former steganography {}-{}'.format(last_dataset.name,
+                                                                                                    last_steganography.name,
+                                                                                                    dataset_enum.name,
+                                                                                                    steganography_enum.name))
         evaluate(model, device, test_loader)
 
 
@@ -336,7 +341,7 @@ def generate_data_loaders(dataset_enum, steganography_enum):
 
     dataset = MyDataset(dataset_enum=dataset_enum, steganography_enum=steganography_enum, transform=transform)
     test_size_ratio = 0.2
-    valid_size_ratio = 0.1
+    valid_size_ratio = 0.2
     dataset_size = len(dataset)
     indices_data = list(range(dataset_size))
     np.random.shuffle(indices_data)

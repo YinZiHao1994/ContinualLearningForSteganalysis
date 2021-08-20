@@ -35,7 +35,7 @@ LOG_PATH = 'data/log'
 DATASET_DIR = r'D:\Work\dataset\steganalysis\BOSSBase'
 use_gpu = torch.cuda.is_available()
 
-num_epochs = 100
+num_epochs = 60
 num_freeze_layers = 0
 lr = 0.01
 reg_lambda = 1
@@ -140,7 +140,9 @@ def main(dataset_steganography_list, reuse_model):
     print("The training process on the {} tasks is completed".format(no_of_tasks))
 
     print("Testing the model now")
-
+    # 释放显存
+    if hasattr(torch.cuda, 'empty_cache'):
+        torch.cuda.empty_cache()
     # test the model out on the test sets of the tasks
     for task in range(1, no_of_tasks + 1):
         print("Testing the model on task {}".format(task))
