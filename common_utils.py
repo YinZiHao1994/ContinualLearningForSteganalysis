@@ -46,11 +46,14 @@ def insert_str_in_file_name_end(file_name, str):
 
 
 # 遍历获取文件夹下的所有文件,所有文件绝对路径在一个列表中返回
-def get_all_files_in_dir(dir_name):
+def get_all_files_in_dir(dir_name, file_type=None):
     file_list = []
     for filepath, dirnames, filenames in os.walk(dir_name):
         for filename in filenames:
-            file_list.append(os.path.join(filepath, filename))
+            if file_type is None:
+                file_list.append(os.path.join(filepath, filename))
+            elif filename.endswith(file_type):
+                file_list.append(os.path.join(filepath, filename))
     return file_list
 
 
@@ -78,6 +81,7 @@ def get_all_grouped_file_path_in_dir(dir_name):
         raise Exception("路径不存在")
     return file_group_list
 
+
 #
 # # 读取模型
 # def read_model():
@@ -98,7 +102,7 @@ def get_all_grouped_file_path_in_dir(dir_name):
 
 # 为某一目标文件夹下的所有文件根据文件名创建自己的文件夹，并移动进文件夹中
 def create_dir_for_every_file(target_dir_name):
-    file_paths = get_all_files_in_dir(target_dir_name)
+    file_paths = get_all_files_in_dir(target_dir_name, None)
     file_names = []
     for file_path in file_paths:
         file_name = get_pure_file_name_from_path(file_path)
@@ -117,6 +121,7 @@ def create_dir(dir_path, clear_dir_files=False):
             os.makedirs(dir_path)
     else:
         os.makedirs(dir_path)
+
 
 #
 # def save_pr_csv_data(labels, results, precision, recall, threshold, file_name_suffix=""):
@@ -181,7 +186,7 @@ def temp_rename_file_in_dir(dir_name, suffix=None):
 
 # 把一个文件夹下的所有文件根据文件名复制到另一个文件夹下的对应文件夹中。就是把同类的文件（比如“美少女_xxx.jpg”系列的文件全都归类到“美少女”文件夹）归类整理
 def copy_files_to_same_kind_dir(source_dir, target_dir):
-    files_in_dir = get_all_files_in_dir(source_dir)
+    files_in_dir = get_all_files_in_dir(source_dir, None)
     files_num = len(files_in_dir)
     for i, file_path in enumerate(files_in_dir):
         if i % 10 == 0:

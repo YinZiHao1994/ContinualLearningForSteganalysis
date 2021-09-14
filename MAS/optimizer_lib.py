@@ -61,14 +61,14 @@ class LocalSgd(optim.SGD):
 
                     # get the gradient for the penalty term for change in the weights of the parameters
                     local_grad = torch.mul(param_diff, 2 * self.reg_lambda * omega)
-
+                    print("omega = {} ,local_grad = {}".format(omega, local_grad))
                     del param_diff
                     del omega
                     del init_val
                     del curr_param_value
 
                     d_p = d_p + local_grad
-
+                    print("dp = {}".format(d_p))
                     del local_grad
 
                 if weight_decay != 0:
