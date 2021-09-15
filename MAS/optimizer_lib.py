@@ -61,14 +61,20 @@ class LocalSgd(optim.SGD):
 
                     # get the gradient for the penalty term for change in the weights of the parameters
                     local_grad = torch.mul(param_diff, 2 * self.reg_lambda * omega)
-                    print("omega = {} ,local_grad = {}".format(omega, local_grad))
+                    # print("omega = {} ,local_grad = {}".format(omega, local_grad))
+                    # print("omega.min() = {} ,omega.max() = {} ,omega.mean() = {}"
+                    #       .format(omega.min(), omega.max(), omega.mean()))
+                    # print(
+                    #     "local_grad.min() = {} ,local_grad.max() = {} ,local_grad.mean() = {}"
+                    #         .format(local_grad.min(), local_grad.max(), local_grad.mean()))
                     del param_diff
                     del omega
                     del init_val
                     del curr_param_value
 
                     d_p = d_p + local_grad
-                    print("dp = {}".format(d_p))
+                    # print("dp = {}".format(d_p))
+                    # print("d_p.min() = {},d_p.max() = {} ,d_p.mean() = {}".format(d_p.min(), d_p.max(), d_p.mean()))
                     del local_grad
 
                 if weight_decay != 0:
@@ -134,9 +140,12 @@ class OmegaUpdate(optim.SGD):
                     step_size = 1 / float(current_size)
 
                     # Incremental update for the omega
-                    omega = omega + step_size * (grad_data_copy - batch_size * (omega))
+                    new_omega = omega + step_size * (grad_data_copy - batch_size * omega)
+                    if batch_index % 10 == 0:
+                        print("in index {} ,param {}'s old omega is {}\nnew omega is {}"
+                              .format(batch_index, p, omega, new_omega))
 
-                    param_dict['omega'] = omega
+                    param_dict['omega'] = new_omega
 
                     reg_params[p] = param_dict
 

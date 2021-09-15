@@ -75,18 +75,18 @@ def check_checkpoints(store_path):
     onlyfiles = [f for f in os.listdir(store_path) if os.path.isfile(os.path.join(store_path, f))]
     max_train = -1
     flag = False
-
+    checkpoint_file = ""
     # Check the latest epoch file that was created
     for file in onlyfiles:
-        if (file.endswith('pth.tr')):
+        if file.endswith('pth.tr'):
             flag = True
             test_epoch = file[0]
-            if (test_epoch > max_train):
+            if test_epoch > max_train:
                 max_epoch = test_epoch
                 checkpoint_file = file
 
     # no checkpoint exists in the directory so return an empty string
-    if (flag == False):
+    if not flag:
         checkpoint_file = ""
 
     return [checkpoint_file, True]
@@ -298,6 +298,7 @@ def save_model(model, task_no, epoch_accuracy):
 
     # save the reg_params
     reg_params = model.reg_params
+    print("reg_params = {}".format(reg_params))
 
     f = open(os.path.join(os.getcwd(), "models", "reg_params.pickle"), 'wb')
     pickle.dump(reg_params, f)
