@@ -163,4 +163,5 @@ def main(dataset_steganography_list, reuse_model):
 if __name__ == '__main__':
     # main([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN], False)
     main([{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
-          {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}], False)
+          {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.SUNI},
+          {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN}], False)

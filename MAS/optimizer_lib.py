@@ -141,9 +141,9 @@ class OmegaUpdate(optim.SGD):
 
                     # Incremental update for the omega
                     new_omega = omega + step_size * (grad_data_copy - batch_size * omega)
-                    if batch_index % 10 == 0:
-                        print("in index {} ,param {}'s old omega is {}\nnew omega is {}"
-                              .format(batch_index, p, omega, new_omega))
+                    # if batch_index % 10 == 0:
+                    #     print("in index {} ,param {}'s old omega is {}\nnew omega is {}"
+                    #           .format(batch_index, p, omega, new_omega))
 
                     param_dict['omega'] = new_omega
 
