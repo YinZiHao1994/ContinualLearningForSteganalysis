@@ -298,7 +298,7 @@ def save_model(model, task_no, epoch_accuracy):
 
     # save the reg_params
     reg_params = model.reg_params
-    print("reg_params = {}".format(reg_params))
+    # print("reg_params = {}".format(reg_params))
 
     f = open(os.path.join(os.getcwd(), "models", "reg_params.pickle"), 'wb')
     pickle.dump(reg_params, f)

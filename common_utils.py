@@ -208,3 +208,17 @@ def replace_char(string, char, index):
     string = list(string)
     string[index] = char
     return ''.join(string)
+
+
+def read_pkl_file(file_path):
+    if not os.path.exists(file_path):
+        raise RuntimeError("文件不存在")
+    f = open(file_path, 'rb')
+    content = pickle.load(f)
+    dir_path = get_file_dir_path(file_path)
+    f = open(os.path.join(dir_path, 'pkl_file_text.txt'), 'w')
+    for n in content:
+        print(n)
+        f.write(str(n) + '\n')
+    f.close()
+
