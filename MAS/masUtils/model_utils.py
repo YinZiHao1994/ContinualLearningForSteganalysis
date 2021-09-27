@@ -202,7 +202,7 @@ def get_pre_model(use_gpu=False, reuse_model=False):
     return model
 
 
-def model_init(no_classes, use_gpu=False, reuse_model=True):
+def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
     """
     Inputs
     1) no_classes: The number of classes that the model is exposed to in the new task
@@ -213,51 +213,45 @@ def model_init(no_classes, use_gpu=False, reuse_model=True):
 
     Function: Initializes a model for the new task which the shared features and a classification head
     particular to the new task
+    :param task_num:
     :param no_classes:
     :param use_gpu:
     :param reuse_model:
 
     """
-    device = torch.device("cuda" if use_gpu else "cpu")
-    path = os.path.join(os.getcwd(), "models", "shared_model.pth")
-    path_to_reg = os.path.join(os.getcwd(), "models", "reg_params.pickle")
+    path_to_model = os.path.join(os.getcwd(), "models")
 
-    pre_model = get_pre_model(use_gpu, reuse_model)
-    model = SharedModel(pre_model)
-    """
-    对 隐写分析的 SRNet 来说，不需要改最后的分类层，永远都是二分类
-    # initialize a new classification head
-    tmodel_classifier = model.tmodel.classifier
-    in_features = tmodel_classifier[-1].in_features
+    path = os.path.join(path_to_model, "shared_model.pth")
+    path_to_reg = os.path.join(path_to_model, "reg_params.pickle")
+    complete_model_path = os.path.join(path_to_model, 'model.pth.tar')
 
-    del tmodel_classifier[-1]
+    model = None
+    if task_num == 1:
+        pre_model = get_pre_model(use_gpu, reuse_model)
+        model = SharedModel(pre_model)
 
-    # load the model
-    if os.path.isfile(path):
-        model.load_state_dict(torch.load(path))
+        # # load the model
+        # if os.path.isfile(path):
+        #     print('加载 shared_model')
+        #     model.load_state_dict(torch.load(path, map_location=device))
+        #
+        # # load the reg_params stored
+        # if os.path.isfile(path_to_reg):
+        #     with open(path_to_reg, 'rb') as handle:
+        #         reg_params = pickle.load(handle)
+        #
+        #     model.reg_params = reg_params
+    else:
+        if not os.path.isfile(complete_model_path):
+            raise RuntimeError("保存的模型路径 {} 不存在".format(complete_model_path))
+        model = torch.load(complete_model_path)
 
-    # add the last classfication head to the shared model
-    tmodel_classifier.add_module(str(len(tmodel_classifier)), nn.Linear(in_features, no_classes))
-    """
     # 针对 隐写分析的 SRNet 的情况
     # initialize a new classification head
     classifier = model.tmodel.fc
     in_features = classifier.in_features
-
-    # load the model
-    if os.path.isfile(path):
-        print('加载 shared_model')
-        model.load_state_dict(torch.load(path, map_location=device))
-
     # add the last classfication head to the shared model
     model.tmodel.fc = nn.Linear(in_features, no_classes)
-
-    # load the reg_params stored
-    if os.path.isfile(path_to_reg):
-        with open(path_to_reg, 'rb') as handle:
-            reg_params = pickle.load(handle)
-
-        model.reg_params = reg_params
 
     device = torch.device("cuda:0" if use_gpu else "cpu")
     model.train(True)
@@ -309,7 +303,7 @@ def save_model(model, task_no, epoch_accuracy):
 
     # save the model at the specified location
     torch.save(model.state_dict(), os.path.join(path_to_model, "shared_model.pth"))
-
+    torch.save(model, os.path.join(path_to_model, 'model.pth.tar'))
     # save the classification head at the task directory
     torch.save(ref.state_dict(), os.path.join(path_to_head, "head.pth"))
 

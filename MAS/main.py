@@ -115,7 +115,7 @@ for task in range(1, no_of_tasks + 1):
 
     no_of_classes = num_classes[task - 1]
 
-    model = model_init(no_of_classes, use_gpu)
+    model = model_init(task, no_of_classes, use_gpu)
 
     mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test, lr,
               reg_lambda, use_gpu)
