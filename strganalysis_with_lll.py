@@ -132,7 +132,7 @@ def main(dataset_steganography_list, reuse_model):
         # no_of_classes = dataloader_train.dataset.classes
         no_of_classes = 2
 
-        model = model_utils.model_init(no_of_tasks, no_of_classes, use_gpu, reuse_model)
+        model = model_utils.model_init(task, no_of_classes, use_gpu, reuse_model)
 
         mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr,
                       reg_lambda, use_gpu)

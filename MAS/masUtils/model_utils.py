@@ -244,6 +244,7 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
     else:
         if not os.path.isfile(complete_model_path):
             raise RuntimeError("保存的模型路径 {} 不存在".format(complete_model_path))
+        print("load model from {}".format(complete_model_path))
         model = torch.load(complete_model_path)
 
     # 针对 隐写分析的 SRNet 的情况
