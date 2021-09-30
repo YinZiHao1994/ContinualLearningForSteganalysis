@@ -129,8 +129,8 @@ def model_inference(task_no, use_gpu=False):
 
     """
     device = torch.device("cuda" if use_gpu else "cpu")
-    pre_model = get_pre_model(use_gpu, False)
-    model = SharedModel(pre_model)
+    # pre_model = get_pre_model(use_gpu, False)
+    # model = SharedModel(pre_model)
 
     path_to_model = os.path.join(os.getcwd(), "models")
 
@@ -145,18 +145,22 @@ def model_inference(task_no, use_gpu=False):
     num_classes = int(num_classes)
     # print (num_classes)
     # in_features = model.tmodel.classifier[-1].in_features
+
+    complete_model_path = os.path.join(path_to_model, 'model.pth.tar')
+    if not os.path.isfile(complete_model_path):
+        raise RuntimeError("保存的模型路径 {} 不存在".format(complete_model_path))
+    model = torch.load(complete_model_path)
+
     # 针对 SRNet 的情况
     classifier = model.tmodel.fc
     in_features = classifier.in_features
-
-    # del classifier
 
     # load the classifier head for the given task identified by the task number
     classification_head = ClassificationHead(in_features, num_classes)
     classification_head.load_state_dict(torch.load(os.path.join(path_to_head, "head.pth")))
 
     # load the trained shared model
-    model.load_state_dict(torch.load(os.path.join(path_to_model, "shared_model.pth"), map_location=device))
+    # model.load_state_dict(torch.load(os.path.join(path_to_model, "shared_model.pth"), map_location=device))
 
     # model.tmodel.classifier.add_module('6', nn.Linear(in_features, num_classes))
     model.tmodel.fc = nn.Linear(in_features, num_classes)
