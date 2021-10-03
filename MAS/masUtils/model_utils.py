@@ -307,8 +307,8 @@ def save_model(model, task_no, epoch_accuracy):
     del classifier
 
     # save the model at the specified location
-    torch.save(model.state_dict(), os.path.join(path_to_model, "shared_model.pth"))
-    torch.save(model, os.path.join(path_to_model, 'model.pth.tar'))
+    # torch.save(model.state_dict(), os.path.join(path_to_model, "shared_model.pth"))
+    # torch.save(model, os.path.join(path_to_model, 'model.pth.tar'))
     # save the classification head at the task directory
     torch.save(ref.state_dict(), os.path.join(path_to_head, "head.pth"))
 

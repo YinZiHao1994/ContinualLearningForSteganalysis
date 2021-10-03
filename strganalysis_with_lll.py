@@ -133,6 +133,7 @@ def main(dataset_steganography_list, reuse_model):
         no_of_classes = 2
 
         model = model_utils.model_init(task, no_of_classes, use_gpu, reuse_model)
+        print("model: ", model)
 
         mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr,
                       reg_lambda, use_gpu)
@@ -154,6 +155,7 @@ def main(dataset_steganography_list, reuse_model):
         # load the model for inference
         model = model_utils.model_inference(task, use_gpu)
         model.to(device)
+        print("model: ", model)
 
         forgetting = mas.compute_forgetting(model, task, dataloader_test, use_gpu)
 
