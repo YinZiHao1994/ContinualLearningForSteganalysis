@@ -25,6 +25,7 @@ from dataset import MyDataset
 import steganalysis_utils
 import dataAnalyze
 from common import DatasetEnum, SteganographyEnum
+import common_utils
 
 BATCH_SIZE = 32
 EPOCHS = 60
@@ -240,6 +241,7 @@ def generate_model(device, target_dataset, target_steganography, reuse_model, re
 
 
 def transfer_learning(dataset_steganography_list):
+    init_console_log()
     device = torch.device("cuda" if use_gpu else "cpu")
     # 迁移学习训练
     for index, dataset_steganography in enumerate(dataset_steganography_list):
@@ -272,6 +274,20 @@ def transfer_learning(dataset_steganography_list):
                                                                                                     dataset_enum.name,
                                                                                                     steganography_enum.name))
         evaluate(model, device, test_loader)
+
+
+def init_console_log():
+    log_file_name = 'ste_transfer_learning'
+    for ste in ste_list:
+        dataset_name = ste['dataset'].name
+        steganography_name = ste['steganography'].name
+        log_file_name = log_file_name + '[' + dataset_name + '-' + steganography_name + ']'
+    log_file_name = log_file_name + ',num_epochs-{}'.format(EPOCHS)
+    log_file_name = log_file_name + '.log'
+    log_file = os.path.join(LOG_PATH, log_file_name)
+    if not os.path.exists(log_file):
+        os.makedirs(log_file)
+    common_utils.Logger(log_file)
 
 
 class DiagramData:
@@ -366,5 +382,6 @@ if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     # individual_learn(SteganographyEnum.HILL, False, SteganographyEnum.HILL)
     # transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
-    transfer_learning([{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
-                       {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}])
+    ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+                {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}]
+    transfer_learning(ste_list)

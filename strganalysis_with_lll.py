@@ -26,6 +26,7 @@ import steganalysis_utils
 from MAS import mas
 from MAS.masUtils import utils, model_utils
 from common import DatasetEnum, SteganographyEnum
+import common_utils
 
 BATCH_SIZE = 32
 # DECAY_EPOCH = [30, 60, 90, 140, 200, 250, 300, 350]
@@ -109,6 +110,7 @@ def generate_data_loaders(dataset_enum, steganography_enum):
 
 
 def main(dataset_steganography_list, reuse_model):
+    init_console_log()
     device = torch.device("cuda" if use_gpu else "cpu")
 
     for dataset_steganography in dataset_steganography_list:
@@ -124,8 +126,6 @@ def main(dataset_steganography_list, reuse_model):
     no_of_tasks = len(train_dset_loaders)
     # train the model on the given number of tasks
     for task in range(1, no_of_tasks + 1):
-        print("Training the model on task {}".format(task))
-
         dataloader_train = train_dset_loaders[task - 1]
         dataloader_valid = valid_dset_loaders[task - 1]
 
@@ -133,7 +133,10 @@ def main(dataset_steganography_list, reuse_model):
         no_of_classes = 2
 
         model = model_utils.model_init(task, no_of_classes, use_gpu, reuse_model)
-        print("model: ", model)
+        # 从第二个任务开始，初始的lr每次缩小10倍
+        global lr
+        lr = lr * pow(0.1, task - 1)
+        print("Training the model on task {}, λ = {}, lr = {}".format(task, reg_lambda, lr))
 
         mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr,
                       reg_lambda, use_gpu)
@@ -162,8 +165,23 @@ def main(dataset_steganography_list, reuse_model):
         print("The forgetting undergone on task {} is {:.4f}".format(task, forgetting))
 
 
+def init_console_log():
+    log_file_name = 'str_with_lll_'
+    for ste in ste_list:
+        dataset_name = ste['dataset'].name
+        steganography_name = ste['steganography'].name
+        log_file_name = log_file_name + '[' + dataset_name + '-' + steganography_name + ']'
+    log_file_name = log_file_name + ',num_epochs-{},reg_lambda-{}'.format(num_epochs, reg_lambda)
+    log_file_name = log_file_name + '.log'
+    log_file = os.path.join(LOG_PATH, log_file_name)
+    if not os.path.exists(log_file):
+        os.makedirs(log_file)
+    common_utils.Logger(log_file)
+
+
 if __name__ == '__main__':
     # main([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN], False)
-    main([{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
-          {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.SUNI},
-          {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN}], False)
+    ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+                {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.SUNI},
+                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN}]
+    main(ste_list, False)

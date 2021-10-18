@@ -323,12 +323,14 @@ def create_freeze_layers(model, num_freeze_layers=2):
 
     """
 
+    # 原始代码的tmodel用的是alexNet，有自己的features和classifier，SRNet没有这些。
+    # 而且为什么要把features层的requires_grad设置为false?可能是因为原始任务只需要alexNet进行迁移学习，所以不需要训练特征提取层
     # The require_grad attribute for the parameters of the classifier layer is set to True by default
-    for param in model.tmodel.classifier.parameters():
-        param.requires_grad = True
-
-    for param in model.tmodel.features.parameters():
-        param.requires_grad = False
+    # for param in model.tmodel.classifier.parameters():
+    #     param.requires_grad = True
+    #
+    # for param in model.tmodel.features.parameters():
+    #     param.requires_grad = False
 
     # return an empty list if you want to train the entire model
     if num_freeze_layers == 0:
@@ -338,7 +340,8 @@ def create_freeze_layers(model, num_freeze_layers=2):
     freeze_layers = []
 
     # get the keys for the conv layers in the model
-    modules = model.tmodel.features._modules
+    # modules = model.tmodel.features._modules
+    modules = model.tmodel._modules
     for key in modules:
         if type(modules[key]) == torch.nn.modules.conv.Conv2d:
             temp_list.append(key)

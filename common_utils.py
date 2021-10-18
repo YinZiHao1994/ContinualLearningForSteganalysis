@@ -4,6 +4,7 @@ import pickle
 import numpy
 
 import shutil
+import sys
 
 
 # 获取文件所在文件夹的路径
@@ -222,3 +223,18 @@ def read_pkl_file(file_path):
         f.write(str(n) + '\n')
     f.close()
 
+
+class Logger(object):
+    def __init__(self, filename='default.log'):
+        self.terminal = sys.stdout
+        self.log = open(filename, 'w')
+        sys.stdout = self
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
+
+# sys.stderr = Logger('a.log_file', sys.stderr)
