@@ -134,11 +134,10 @@ def main(dataset_steganography_list, reuse_model):
 
         model = model_utils.model_init(task, no_of_classes, use_gpu, reuse_model)
         # 从第二个任务开始，初始的lr每次缩小10倍
-        global lr
-        lr = lr * pow(0.1, task - 1)
-        print("Training the model on task {}, λ = {}, lr = {}".format(task, reg_lambda, lr))
+        actual_lr = lr * pow(0.1, task - 1)
+        print("Training the model on task {}, λ = {}, lr = {}".format(task, reg_lambda, actual_lr))
 
-        mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr,
+        mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, actual_lr,
                       reg_lambda, use_gpu)
 
     print("The training process on the {} tasks is completed".format(no_of_tasks))
@@ -174,8 +173,6 @@ def init_console_log():
     log_file_name = log_file_name + ',num_epochs-{},reg_lambda-{}'.format(num_epochs, reg_lambda)
     log_file_name = log_file_name + '.log'
     log_file = os.path.join(LOG_PATH, log_file_name)
-    if not os.path.exists(log_file):
-        os.makedirs(log_file)
     common_utils.Logger(log_file)
 
 
