@@ -251,12 +251,12 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
         print("load model from {}".format(complete_model_path))
         model = torch.load(complete_model_path)
 
-    # 针对 隐写分析的 SRNet 的情况
+    # 针对 隐写分析的 SRNet 的情况，所有任务都是二分类，直接使用默认的fc
     # initialize a new classification head
-    classifier = model.tmodel.fc
-    in_features = classifier.in_features
-    # add the last classfication head to the shared model
-    model.tmodel.fc = nn.Linear(in_features, no_classes)
+    # classifier = model.tmodel.fc
+    # in_features = classifier.in_features
+    # # add the last classfication head to the shared model
+    # model.tmodel.fc = nn.Linear(in_features, no_classes)
 
     device = torch.device("cuda:0" if use_gpu else "cpu")
     model.train(True)

@@ -135,6 +135,10 @@ def main(dataset_steganography_list, reuse_model):
         model = model_utils.model_init(task, no_of_classes, use_gpu, reuse_model)
         # 从第二个任务开始，初始的lr每次缩小10倍
         actual_lr = lr * pow(0.1, task - 1)
+        # 从第二个任务开始，冻结最后的全连接层
+        if task > 1:
+            for par in model.tmodel.fc.parameters():
+                par.requires_grad = False
         print("Training the model on task {}, λ = {}, lr = {}".format(task, reg_lambda, actual_lr))
 
         mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, actual_lr,
