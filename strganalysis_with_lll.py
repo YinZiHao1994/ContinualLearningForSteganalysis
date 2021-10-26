@@ -40,6 +40,8 @@ num_epochs = 60
 num_freeze_layers = 0
 lr = 0.01
 reg_lambda = 1
+prior_lambda = 5
+later_lambda = 1
 
 train_dset_loaders = []
 valid_dset_loaders = []
@@ -141,16 +143,7 @@ def main(dataset_steganography_list, reuse_model):
                 par.requires_grad = False
         print("Training the model on task {}, λ = {}, lr = {}".format(task, reg_lambda, actual_lr))
 
-        # 每一层单独设定lambda
-        model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
-        form_length = 0
-        lambda_list = []
-        for index, (name, param) in enumerate(model.tmodel.named_parameters()):
-            if name == 'bn72.bias':
-                form_length = index
-                lambda_list = [5] * (form_length + 1)
-        lambda_list.extend([1] * (model_layer_length - form_length - 1))
-        print(lambda_list)
+        lambda_list = init_lambda_list(model)
         mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
                       actual_lr, lambda_list=lambda_list, reg_lambda=reg_lambda, use_gpu=use_gpu)
 
@@ -178,6 +171,20 @@ def main(dataset_steganography_list, reuse_model):
         print("The forgetting undergone on task {} is {:.4f}".format(task, forgetting))
 
 
+def init_lambda_list(model):
+    # 每一层单独设定lambda
+    model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
+    prior_length = 0
+    lambda_list = []
+    for index, (name, param) in enumerate(model.tmodel.named_parameters()):
+        if name == 'bn72.bias':
+            prior_length = index
+            lambda_list = [prior_lambda] * (prior_length + 1)
+    lambda_list.extend([later_lambda] * (model_layer_length - prior_length - 1))
+    print(lambda_list)
+    return lambda_list
+
+
 def init_console_log():
     log_file_name = 'str_with_lll_'
     for ste in ste_list:
@@ -185,6 +192,7 @@ def init_console_log():
         steganography_name = ste['steganography'].name
         log_file_name = log_file_name + '[' + dataset_name + '-' + steganography_name + ']'
     log_file_name = log_file_name + ',num_epochs-{},reg_lambda-{}'.format(num_epochs, reg_lambda)
+    log_file_name = log_file_name + 'prior_lambda-{},later_lambda-{}'.format(prior_lambda, later_lambda)
     log_file_name = log_file_name + '.log'
     log_file = os.path.join(LOG_PATH, log_file_name)
     common_utils.Logger(log_file)
