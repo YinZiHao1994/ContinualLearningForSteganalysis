@@ -141,8 +141,18 @@ def main(dataset_steganography_list, reuse_model):
                 par.requires_grad = False
         print("Training the model on task {}, λ = {}, lr = {}".format(task, reg_lambda, actual_lr))
 
-        mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, actual_lr,
-                      reg_lambda, use_gpu)
+        # 每一层单独设定lambda
+        model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
+        form_length = 0
+        lambda_list = []
+        for index, (name, param) in enumerate(model.tmodel.named_parameters()):
+            if name == 'bn72.bias':
+                form_length = index
+                lambda_list = [5] * (form_length + 1)
+        lambda_list.extend([1] * (model_layer_length - form_length - 1))
+        print(lambda_list)
+        mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
+                      actual_lr, lambda_list=lambda_list, reg_lambda=reg_lambda, use_gpu=use_gpu)
 
     print("The training process on the {} tasks is completed".format(no_of_tasks))
 

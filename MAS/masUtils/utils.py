@@ -19,12 +19,13 @@ import shutil
 import sys
 
 
-def init_reg_params(model, use_gpu, freeze_layers=None):
+def init_reg_params(model, use_gpu, lambda_list, freeze_layers=None):
     """
     Input:
-    1) model: A reference to the model that is being trained
-    2) use_gpu: Set the flag to True if the model is to be trained on the GPU
-    3) freeze_layers: A list containing the layers for which omega is not calculated. Useful in the
+    :param model: A reference to the model that is being trained
+    :param use_gpu: Set the flag to True if the model is to be trained on the GPU
+    :param lambda_list:
+    :param freeze_layers: A list containing the layers for which omega is not calculated. Useful in the
         case of computational limitations where computing the importance parameters for the entire model
         is not feasible
 
@@ -43,14 +44,22 @@ def init_reg_params(model, use_gpu, freeze_layers=None):
 
     reg_params = {}
 
-    for name, param in model.tmodel.named_parameters():
+    # model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
+    lambda_list_length = len(lambda_list)
+
+    # if lambda_list is None:
+    #     lambda_list = [1] * model_layer_length
+
+    for index, (name, param) in enumerate(model.tmodel.named_parameters()):
         if name not in freeze_layers:
             print("Initializing omega values for layer", name)
             omega = torch.zeros(param.size())
             omega = omega.to(device)
 
             init_val = param.data.clone()
-            param_dict = {'omega': omega, 'init_val': init_val}
+            if index >= lambda_list_length:
+                raise RuntimeError("index {} out of lambda_list_length {}".format(index, lambda_list_length))
+            param_dict = {'omega': omega, 'init_val': init_val, 'lambda': lambda_list[index]}
 
             # for first task, omega is initialized to zero
 

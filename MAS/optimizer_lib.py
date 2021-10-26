@@ -50,6 +50,7 @@ class LocalSgd(optim.SGD):
 
                     omega = param_dict['omega']
                     init_val = param_dict['init_val']
+                    reg_lambda = param_dict['lambda']
                     curr_param_value = p.data
                     if use_gpu:
                         curr_param_value = curr_param_value.cuda()
@@ -60,7 +61,9 @@ class LocalSgd(optim.SGD):
                     param_diff = curr_param_value - init_val
 
                     # get the gradient for the penalty term for change in the weights of the parameters
-                    local_grad = torch.mul(param_diff, 2 * self.reg_lambda * omega)
+                    # local_grad = torch.mul(param_diff, 2 * self.reg_lambda * omega)
+                    # 使用每一层独立的reg_lambda替换整体设置的reg_lambda
+                    local_grad = torch.mul(param_diff, 2 * reg_lambda * omega)
                     # print("omega = {} ,local_grad = {}".format(omega, local_grad))
                     # print("omega.min() = {} ,omega.max() = {} ,omega.mean() = {}"
                     #       .format(omega.min(), omega.max(), omega.mean()))
