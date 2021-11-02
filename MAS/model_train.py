@@ -101,6 +101,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
     acc_history = {x: [] for x in ['train', 'val']}
     counter = {x: [] for x in ['train', 'val']}
     iteration_number = {x: 0 for x in ['train', 'val']}
+    epoch_number = {x: 0 for x in ['train', 'val']}
 
     since_time = time.time()
 
@@ -234,17 +235,21 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                 del labels
                 total += data_num
 
-                if index % 10 == 0:
-                    iteration_number[phase] += 10
-                    counter[phase].append(iteration_number[phase])
-                    loss_history[phase].append(loss.item())
-                    acc_history[phase].append(corrects / data_num)
+                # if index % 10 == 0:
+                #     iteration_number[phase] += 10
+                #     counter[phase].append(iteration_number[phase])
+                #     loss_history[phase].append(loss.item())
+                #     acc_history[phase].append(corrects / data_num)
 
             scheduler.step()
 
             dataset_size = len(dataloader_train.dataset)
             epoch_loss = running_loss / total
             epoch_accuracy = running_corrects / total
+            epoch_number[phase] += 1
+            counter[phase].append(iteration_number[phase])
+            loss_history[phase].append(epoch_loss)
+            acc_history[phase].append(epoch_accuracy)
             diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
             dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
                                        "loss_" + phase + "_" + str(epoch))

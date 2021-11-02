@@ -125,50 +125,50 @@ def main(dataset_steganography_list, reuse_model):
         test_dset_loaders.append(test_loader)
 
     # get the number of tasks in the sequence
-    no_of_tasks = len(train_dset_loaders)
+    tasks_length = len(train_dset_loaders)
     # train the model on the given number of tasks
-    for task in range(1, no_of_tasks + 1):
-        dataloader_train = train_dset_loaders[task - 1]
-        dataloader_valid = valid_dset_loaders[task - 1]
+    for task_num in range(1, tasks_length + 1):
+        dataloader_train = train_dset_loaders[task_num - 1]
+        dataloader_valid = valid_dset_loaders[task_num - 1]
 
         # no_of_classes = dataloader_train.dataset.classes
         no_of_classes = 2
 
-        model = model_utils.model_init(task, no_of_classes, use_gpu, reuse_model)
+        model = model_utils.model_init(task_num, no_of_classes, use_gpu, reuse_model)
         # 从第二个任务开始，初始的lr每次缩小10倍
-        actual_lr = lr * pow(0.1, task - 1)
+        actual_lr = lr * pow(0.1, task_num - 1)
         # 从第二个任务开始，冻结最后的全连接层
-        if task > 1:
+        if task_num > 1:
             for par in model.tmodel.fc.parameters():
                 par.requires_grad = False
-        print("Training the model on task {}, λ = {}, lr = {}".format(task, reg_lambda, actual_lr))
+        print("Training the model on task {}, λ = {}, lr = {}".format(task_num, reg_lambda, actual_lr))
 
         lambda_list = init_lambda_list(model)
-        mas.mas_train(model, task, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
+        mas.mas_train(model, task_num, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
                       actual_lr, lambda_list=lambda_list, reg_lambda=reg_lambda, use_gpu=use_gpu)
 
-    print("The training process on the {} tasks is completed".format(no_of_tasks))
+    print("The training process on the {} tasks is completed".format(tasks_length))
 
     print("Testing the model now")
     # 释放显存
     if hasattr(torch.cuda, 'empty_cache'):
         torch.cuda.empty_cache()
     # test the model out on the test sets of the tasks
-    for task in range(1, no_of_tasks + 1):
-        print("Testing the model on task {}".format(task))
+    for task_num in range(1, tasks_length + 1):
+        print("Testing the model on task {}".format(task_num))
 
-        dataloader_test = test_dset_loaders[task - 1]
+        dataloader_test = test_dset_loaders[task_num - 1]
         # no_of_classes = dataloader_test.dataset.classes
         no_of_classes = 2
 
         # load the model for inference
-        model = model_utils.model_inference(task, use_gpu)
+        model = model_utils.model_inference(task_num, use_gpu)
         model.to(device)
         print("model: ", model)
 
-        forgetting = mas.compute_forgetting(model, task, dataloader_test, use_gpu)
+        forgetting = mas.compute_forgetting(model, task_num, dataloader_test, use_gpu)
 
-        print("The forgetting undergone on task {} is {:.4f}".format(task, forgetting))
+        print("The forgetting undergone on task {} is {:.4f}".format(task_num, forgetting))
 
 
 def init_lambda_list(model):
