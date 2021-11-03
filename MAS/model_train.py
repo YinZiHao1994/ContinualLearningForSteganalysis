@@ -247,7 +247,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             epoch_loss = running_loss / total
             epoch_accuracy = running_corrects / total
             epoch_number[phase] += 1
-            counter[phase].append(iteration_number[phase])
+            counter[phase].append(epoch_number[phase])
             loss_history[phase].append(epoch_loss)
             acc_history[phase].append(epoch_accuracy)
             diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
