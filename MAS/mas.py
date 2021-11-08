@@ -58,8 +58,8 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
         # initialize the reg_params for this task
         model = init_reg_params_across_tasks(model, use_gpu)
 
-    if task_no > 1:
-        model = consolidate_reg_params(model, use_gpu)
+    # if task_no > 1:
+    #     model = consolidate_reg_params(model, use_gpu)
     momentum = 0.9
     # optimizer_sp = LocalSgd(model.tmodel.parameters(), reg_lambda, lr, momentum=momentum, weight_decay=0.0005)
     optimizer_sp = LocalSgd(filter(lambda p: p.requires_grad, model.tmodel.parameters()), reg_lambda, lr,

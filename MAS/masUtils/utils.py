@@ -116,7 +116,7 @@ def init_reg_params_across_tasks(model, use_gpu, freeze_layers=None):
                 init_val = init_val.to(device)
 
                 param_dict['prev_omega'] = prev_omega
-                param_dict['omega'] = new_omega
+                param_dict['omega'] = prev_omega
 
                 # store the initial values of the parameters
                 param_dict['init_val'] = init_val
