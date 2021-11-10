@@ -55,11 +55,11 @@ def init_reg_params(model, use_gpu, lambda_list, freeze_layers=None):
             print("Initializing omega values for layer", name)
             omega = torch.zeros(param.size())
             omega = omega.to(device)
-
+            omega_list = [omega]
             init_val = param.data.clone()
             if index >= lambda_list_length:
                 raise RuntimeError("index {} out of lambda_list_length {}".format(index, lambda_list_length))
-            param_dict = {'omega': omega, 'init_val': init_val, 'lambda': lambda_list[index]}
+            param_dict = {'omega': omega, 'init_val': init_val, 'lambda': lambda_list[index], 'omega_list': omega_list}
 
             # for first task, omega is initialized to zero
 
@@ -120,6 +120,10 @@ def init_reg_params_across_tasks(model, use_gpu, freeze_layers=None):
 
                 # store the initial values of the parameters
                 param_dict['init_val'] = init_val
+
+                omega_list = param_dict['omega_list']
+                omega_list.append(new_omega)
+                param_dict['omega_list'] = omega_list
 
                 # the key for this dictionary is the name of the layer
                 reg_params[param] = param_dict

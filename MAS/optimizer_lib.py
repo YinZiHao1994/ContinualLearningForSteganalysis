@@ -49,6 +49,12 @@ class LocalSgd(optim.SGD):
                     param_dict = reg_params[p]
 
                     omega = param_dict['omega']
+                    omega_list = param_dict['omega_list']
+                    used_omega = None
+                    omega_list_length = len(omega_list)
+                    for i, ome in enumerate(omega_list):
+                        used_omega = ome * (omega_list_length - i) + used_omega
+
                     init_val = param_dict['init_val']
                     reg_lambda = param_dict['lambda']
                     curr_param_value = p.data
@@ -56,6 +62,7 @@ class LocalSgd(optim.SGD):
                         curr_param_value = curr_param_value.cuda()
                         init_val = init_val.cuda()
                         omega = omega.cuda()
+                        used_omega = used_omega.cuda()
 
                     # get the difference
                     param_diff = curr_param_value - init_val
@@ -63,7 +70,8 @@ class LocalSgd(optim.SGD):
                     # get the gradient for the penalty term for change in the weights of the parameters
                     # local_grad = torch.mul(param_diff, 2 * self.reg_lambda * omega)
                     # 使用每一层独立的reg_lambda替换整体设置的reg_lambda
-                    local_grad = torch.mul(param_diff, 2 * reg_lambda * omega)
+                    # local_grad = torch.mul(param_diff, 2 * reg_lambda * omega)
+                    local_grad = torch.mul(param_diff, 2 * reg_lambda * used_omega)
                     # print("omega = {} ,local_grad = {}".format(omega, local_grad))
                     # print("omega.min() = {} ,omega.max() = {} ,omega.mean() = {}"
                     #       .format(omega.min(), omega.max(), omega.mean()))
@@ -137,18 +145,24 @@ class OmegaUpdate(optim.SGD):
                     param_dict = reg_params[p]
 
                     omega = param_dict['omega']
+                    omega_list = param_dict['omega_list']
+                    last_omega = omega_list[-1]
                     omega = omega.to(torch.device("cuda:0" if use_gpu else "cpu"))
+                    last_omega = last_omega.to(torch.device("cuda:0" if use_gpu else "cpu"))
 
                     current_size = (batch_index + 1) * batch_size
                     step_size = 1 / float(current_size)
 
                     # Incremental update for the omega
                     new_omega = omega + step_size * (grad_data_copy - batch_size * omega)
+                    param_dict['omega'] = new_omega
+                    new_omega = last_omega + step_size * (grad_data_copy - batch_size * last_omega)
+                    omega_list[-1] = new_omega
+                    param_dict['omega_list'] = omega_list
+
                     # if batch_index % 10 == 0:
                     #     print("in index {} ,param {}'s old omega is {}\nnew omega is {}"
                     #           .format(batch_index, p, omega, new_omega))
-
-                    param_dict['omega'] = new_omega
 
                     reg_params[p] = param_dict
 
