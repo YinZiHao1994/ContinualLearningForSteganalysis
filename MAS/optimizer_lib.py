@@ -45,12 +45,13 @@ class LocalSgd(optim.SGD):
 
                 d_p = p.grad.data
 
+                param_diff = None
                 if p in reg_params:
                     param_dict = reg_params[p]
 
                     omega = param_dict['omega']
                     omega_list = param_dict['omega_list']
-                    used_omega = None
+                    used_omega = 0
                     omega_list_length = len(omega_list)
                     for i, ome in enumerate(omega_list):
                         used_omega = ome * (omega_list_length - i) + used_omega
@@ -78,7 +79,7 @@ class LocalSgd(optim.SGD):
                     # print(
                     #     "local_grad.min() = {} ,local_grad.max() = {} ,local_grad.mean() = {}"
                     #         .format(local_grad.min(), local_grad.max(), local_grad.mean()))
-                    del param_diff
+                    # del param_diff
                     del omega
                     del init_val
                     del curr_param_value
@@ -106,7 +107,16 @@ class LocalSgd(optim.SGD):
                         d_p = buf
 
                 # p.data.add_(-group['lr'], d_p)
-                p.data.add_(other=d_p, alpha=-group['lr'])
+                if param_diff is not None:
+                    d_p_group_lr = d_p * group['lr']
+                    # 惩罚项过大，对p的改变产生了“矫枉过正”的效果，直接让p回到init_value的大小
+                    if d_p_group_lr.abs() > param_diff.abs():
+                        print("penalty is too large ({}) compare with param_diff ({})".format(d_p_group_lr, param_diff))
+                        p.data.add_(-param_diff)
+                    else:
+                        p.data.add_(other=d_p, alpha=-group['lr'])
+                else:
+                    p.data.add_(other=d_p, alpha=-group['lr'])
 
         return loss
 
@@ -126,18 +136,11 @@ class OmegaUpdate(optim.SGD):
             loss = closure()
 
         for group in self.param_groups:
-            weight_decay = group['weight_decay']
-            momentum = group['momentum']
-            dampening = group['dampening']
-            nesterov = group['nesterov']
-
             for p in group['params']:
                 if p.grad is None:
                     continue
 
                 if p in reg_params:
-                    grad_data = p.grad.data
-
                     # The absolute value of the grad_data that is to be added to omega
                     grad_data_copy = p.grad.data.clone()
                     grad_data_copy = grad_data_copy.abs()
@@ -151,12 +154,16 @@ class OmegaUpdate(optim.SGD):
                     last_omega = last_omega.to(torch.device("cuda:0" if use_gpu else "cpu"))
 
                     current_size = (batch_index + 1) * batch_size
+                    prev_size = batch_index * batch_size
                     step_size = 1 / float(current_size)
 
                     # Incremental update for the omega
-                    new_omega = omega + step_size * (grad_data_copy - batch_size * omega)
+                    # sum up the magnitude of the gradient
+                    new_omega = ((omega.mul(prev_size)).add(grad_data_copy)).div(current_size)
+                    # new_omega = omega + step_size * (grad_data_copy - batch_size * omega)
                     param_dict['omega'] = new_omega
-                    new_omega = last_omega + step_size * (grad_data_copy - batch_size * last_omega)
+                    new_omega = ((last_omega.mul(prev_size)).add(grad_data_copy)).div(current_size)
+                    # new_omega = last_omega + step_size * (grad_data_copy - batch_size * last_omega)
                     omega_list[-1] = new_omega
                     param_dict['omega_list'] = omega_list
 

@@ -119,6 +119,28 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             print("Updating the omega values for this task")
             model = compute_omega_grads_norm(model, dataloader_train, optimizer_ft, use_gpu)
 
+            ############ 打印查看最大和最小的omega #############
+            reg_params = model.reg_params
+            param_omega_list = []
+            max_omega = None
+            min_omega = None
+            torch_max = 0
+            torch_min = 100000
+            for reg_param in reg_params:
+                reg_param = reg_params[reg_param]
+                param_omega = reg_param['omega']
+                # param_omega_list.append(param_omega)
+                torch_max = max(torch_max, torch.max(param_omega))
+                torch_min = min(torch_min, torch.min(param_omega))
+                # if max_omega is None:
+                #     max_omega = torch.zeros_like(param_omega)
+                # if min_omega is None:
+                #     min_omega = torch.zeros_like(param_omega)
+                # max_omega = torch.maximum(max_omega, param_omega)
+                # min_omega = torch.minimum(min_omega, param_omega)
+            # print("max_omega = {}\nmin_omega = {}".format(max_omega, min_omega))
+            print("compute_omega_grads_norm max_omega = {}\nmin_omega = {}".format(torch_max, torch_min))
+
             running_loss = 0
             running_corrects = 0.0
 
