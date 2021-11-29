@@ -44,8 +44,9 @@ class LocalSgd(optim.SGD):
                     continue
 
                 d_p = p.grad.data
-
+                d_p_with_penalty = d_p
                 param_diff = None
+                init_val = None
                 if p in reg_params:
                     param_dict = reg_params[p]
 
@@ -80,43 +81,50 @@ class LocalSgd(optim.SGD):
                     #     "local_grad.min() = {} ,local_grad.max() = {} ,local_grad.mean() = {}"
                     #         .format(local_grad.min(), local_grad.max(), local_grad.mean()))
                     # del param_diff
+                    # del init_val
                     del omega
-                    del init_val
-                    del curr_param_value
+                    # del curr_param_value
 
-                    d_p = d_p + local_grad
+                    d_p_with_penalty = d_p + local_grad
                     # print("dp = {}".format(d_p))
                     # print("d_p.min() = {},d_p.max() = {} ,d_p.mean() = {}".format(d_p.min(), d_p.max(), d_p.mean()))
-                    del local_grad
+                    # del local_grad
 
-                if weight_decay != 0:
-                    # d_p.add_(weight_decay, p.data)
-                    d_p.add_(other=p.data, alpha=weight_decay)
+                    if weight_decay != 0:
+                        # d_p.add_(weight_decay, p.data)
+                        d_p_with_penalty.add_(other=p.data, alpha=weight_decay)
 
-                if momentum != 0:
-                    param_state = self.state[p]
-                    if 'momentum_buffer' not in param_state:
-                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
-                    else:
-                        buf = param_state['momentum_buffer']
-                        # buf.mul_(momentum).add_(1 - dampening, d_p)
-                        buf.mul_(momentum).add_(other=d_p, alpha=1 - dampening)
-                    if nesterov:
-                        d_p = d_p.add(momentum, buf)
-                    else:
-                        d_p = buf
+                    if momentum != 0:
+                        param_state = self.state[p]
+                        if 'momentum_buffer' not in param_state:
+                            buf = param_state['momentum_buffer'] = torch.clone(d_p_with_penalty).detach()
+                        else:
+                            buf = param_state['momentum_buffer']
+                            # buf.mul_(momentum).add_(1 - dampening, d_p)
+                            buf.mul_(momentum).add_(other=d_p_with_penalty, alpha=1 - dampening)
+                        if nesterov:
+                            d_p_with_penalty = d_p_with_penalty.add(momentum, buf)
+                        else:
+                            d_p_with_penalty = buf
 
-                # p.data.add_(-group['lr'], d_p)
-                if param_diff is not None:
-                    d_p_group_lr = d_p * group['lr']
-                    # 惩罚项过大，对p的改变产生了“矫枉过正”的效果，直接让p回到init_value的大小
-                    if d_p_group_lr.abs() > param_diff.abs():
-                        print("penalty is too large ({}) compare with param_diff ({})".format(d_p_group_lr, param_diff))
-                        p.data.add_(-param_diff)
-                    else:
-                        p.data.add_(other=d_p, alpha=-group['lr'])
-                else:
-                    p.data.add_(other=d_p, alpha=-group['lr'])
+                    p.data.add_(other=d_p_with_penalty, alpha=-group['lr'])
+                    # p.data.add_(-group['lr'], d_p)
+                    # 不是第一次更新（param_diff全0），不是第一个任务（local_grad全0）
+                    if param_diff is not None and local_grad is not None and local_grad.any().item() and param_diff.any().item():
+                        d_p_group_lr = d_p_with_penalty * -group['lr']
+                        # 比较他们的绝对值大小
+                        compare = torch.gt(d_p_group_lr.abs(), param_diff.abs())
+                        # 相乘之后与0比较，用来判断他们本来是不是异号
+                        mul_result = torch.mul(d_p_group_lr, param_diff)
+                        negative_compare = torch.lt(mul_result, torch.zeros_like(param_diff))
+                        # dp 与 param_diff是异号的，并且dp的绝对值大小更大
+                        compare_and_contrary = negative_compare & compare
+                        # 惩罚项过大，对p的改变产生了“矫枉过正”的效果，直接让p回到 curr_param_value 的大小
+                        if compare_and_contrary.any().item():
+                            # print("penalty is too large ({})\n compare with param_diff ({})\ncompare {}".format(
+                            #     d_p_group_lr,
+                            #     param_diff, compare))
+                            p.data[compare_and_contrary] = curr_param_value[compare_and_contrary]
 
         return loss
 
