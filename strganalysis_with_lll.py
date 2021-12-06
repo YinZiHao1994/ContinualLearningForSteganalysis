@@ -139,10 +139,7 @@ def main(dataset_steganography_list, reuse_model):
         model = model_utils.model_init(task_num, no_of_classes, use_gpu, reuse_model)
         # 从第二个任务开始，初始的lr每次缩小10倍
         actual_lr = lr * pow(0.1, task_num - 1)
-        # 从第二个任务开始，冻结最后的全连接层
-        if task_num > 1:
-            for par in model.tmodel.fc.parameters():
-                par.requires_grad = False
+
         print("Training the model on task {}, λ = {}, lr = {}".format(task_num, reg_lambda, actual_lr))
 
         lambda_list = init_lambda_list(model)
@@ -194,10 +191,20 @@ def init_console_log():
         steganography_name = ste['steganography'].name
         log_file_name = log_file_name + '[' + dataset_name + '-' + steganography_name + ']'
     log_file_name = log_file_name + ',num_epochs-{},reg_lambda-{}'.format(num_epochs, reg_lambda)
-    log_file_name = log_file_name + 'prior_lambda-{},later_lambda-{}'.format(prior_lambda, later_lambda)
+    # log_file_name = log_file_name + '-后层冻结'
+    log_file_name = log_file_name + '-lr变一次'
+    # log_file_name = log_file_name + '-lr不变'
+    log_file_name = log_file_name + '-全连接通用并冻结'
+    log_file_name = log_file_name + '-独立控制lambda,prior_lambda-{},later_lambda-{}'.format(prior_lambda, later_lambda)
+    log_file_name = log_file_name + '-去除consolidate'
+    log_file_name = log_file_name + '-omega独立_max_omega占0.7权重，正常omega加值占0.3'
+    log_file_name = log_file_name + '-避免矫枉过正算法'
+    # log_file_name = log_file_name + '-优化的避免矫枉过正算法'
+    # log_file_name = log_file_name + '-omega独立_所有omega的最大值占0.5权重'
     log_file_name = log_file_name + '.log'
-    log_file = os.path.join(LOG_PATH, log_file_name)
+    log_file = os.path.join(LOG_PATH, 'str_with_lll_' + str(time.time()) + '.log')
     common_utils.Logger(log_file)
+    print(log_file_name)
 
 
 if __name__ == '__main__':
