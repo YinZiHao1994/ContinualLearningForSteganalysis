@@ -176,8 +176,8 @@ class OmegaUpdate(optim.SGD):
                     param_dict['omega_list'] = omega_list
 
                     # if batch_index % 10 == 0:
-                    #     print("in index {} ,param {}'s old omega is {}\nnew omega is {}"
-                    #           .format(batch_index, p, omega, new_omega))
+                        # print("in index {} ,param {}'s old omega is {}\nnew omega is {}"
+                        #       .format(batch_index, p, omega, new_omega))
 
                     reg_params[p] = param_dict
 
