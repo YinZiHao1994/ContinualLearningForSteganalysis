@@ -54,20 +54,30 @@ class LocalSgd(optim.SGD):
                     omega_list = param_dict['omega_list']
                     used_omega = 0
                     omega_list_length = len(omega_list)
+                    max_omega = None
                     for i, ome in enumerate(omega_list):
-                        used_omega = ome * (omega_list_length - i) + used_omega
+                    #     used_omega = ome * (omega_list_length - i) + used_omega
+                        if max_omega is None:
+                            max_omega = torch.zeros_like(ome)
+                        # used_omega = ome * (omega_list_length - i) + used_omega
+                        max_omega = torch.max(max_omega, ome)
+                        used_omega = ome + used_omega
+                        if self.flag < 1:
+                            print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
+                            print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
+                    used_omega = used_omega * 0.3 + max_omega * 0.7
 
                     init_val = param_dict['init_val']
                     reg_lambda = param_dict['lambda']
-                    curr_param_value = p.data
+                    curr_param_value_copy = p.data.clone()
                     if use_gpu:
-                        curr_param_value = curr_param_value.cuda()
+                        curr_param_value_copy = curr_param_value_copy.cuda()
                         init_val = init_val.cuda()
                         omega = omega.cuda()
                         used_omega = used_omega.cuda()
 
                     # get the difference
-                    param_diff = curr_param_value - init_val
+                    param_diff = curr_param_value_copy - init_val
 
                     # get the gradient for the penalty term for change in the weights of the parameters
                     # local_grad = torch.mul(param_diff, 2 * self.reg_lambda * omega)
@@ -83,7 +93,7 @@ class LocalSgd(optim.SGD):
                     # del param_diff
                     # del init_val
                     del omega
-                    # del curr_param_value
+                    # del curr_param_value_copy
 
                     d_p_with_penalty = d_p + local_grad
                     # print("dp = {}".format(d_p))
@@ -119,12 +129,12 @@ class LocalSgd(optim.SGD):
                         negative_compare = torch.lt(mul_result, torch.zeros_like(param_diff))
                         # dp 与 param_diff是异号的，并且dp的绝对值大小更大
                         compare_and_contrary = negative_compare & compare
-                        # 惩罚项过大，对p的改变产生了“矫枉过正”的效果，直接让p回到 curr_param_value 的大小
+                        # 惩罚项过大，对p的改变产生了“矫枉过正”的效果，直接让p回到 curr_param_value_copy 的大小
                         if compare_and_contrary.any().item():
                             # print("penalty is too large ({})\n compare with param_diff ({})\ncompare {}".format(
                             #     d_p_group_lr,
                             #     param_diff, compare))
-                            p.data[compare_and_contrary] = curr_param_value[compare_and_contrary]
+                            p.data[compare_and_contrary] = curr_param_value_copy[compare_and_contrary]
 
         return loss
 
