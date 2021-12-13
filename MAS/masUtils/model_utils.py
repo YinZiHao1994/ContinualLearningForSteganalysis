@@ -262,12 +262,6 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
     if task_num > 1:
         for par in model.tmodel.fc.parameters():
             par.requires_grad = False
-        # 从第二个任务开始，冻结bn相关层（从打印结果看bn层的Omega都很大，可能影响终身学习的效果）
-        for index, (name, params) in enumerate(model.tmodel.named_parameters()):
-            for param in params:
-                print("{} not requires_grad", name)
-                if 'bn' in name:
-                    param.requires_grad = False
     device = torch.device("cuda:0" if use_gpu else "cpu")
     model.train(True)
     model.to(device)
