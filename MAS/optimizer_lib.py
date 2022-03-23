@@ -17,9 +17,12 @@ import shutil
 
 
 class LocalSgd(optim.SGD):
-    def __init__(self, params, reg_lambda, lr=0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False):
+    def __init__(self, params, reg_lambda, weight_params, lr=0.001, momentum=0, dampening=0, weight_decay=0,
+                 nesterov=False):
         super(LocalSgd, self).__init__(params, lr, momentum, dampening, weight_decay, nesterov)
-        self.reg_lambda = reg_lambda
+        # 由于现在每一层有自己单独的 reg_lambda ，此处不再使用
+        # self.reg_lambda = reg_lambda
+        self.weight_params = weight_params
 
     def __setstate__(self, state):
         super(LocalSgd, self).__setstate__(state)
@@ -31,6 +34,8 @@ class LocalSgd(optim.SGD):
 
         if closure is not None:
             loss = closure()
+        used_omega_weight = self.weight_params['used_omega_weight']
+        max_omega_weight = self.weight_params['max_omega_weight']
 
         for group in self.param_groups:
             weight_decay = group['weight_decay']
@@ -56,7 +61,7 @@ class LocalSgd(optim.SGD):
                     omega_list_length = len(omega_list)
                     max_omega = None
                     for i, ome in enumerate(omega_list):
-                    #     used_omega = ome * (omega_list_length - i) + used_omega
+                        #     used_omega = ome * (omega_list_length - i) + used_omega
                         if max_omega is None:
                             max_omega = torch.zeros_like(ome)
                         # used_omega = ome * (omega_list_length - i) + used_omega
@@ -65,7 +70,8 @@ class LocalSgd(optim.SGD):
                         if self.flag < 1:
                             print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
                             print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
-                    used_omega = used_omega * 0.3 + max_omega * 0.7
+
+                    used_omega = used_omega * used_omega_weight + max_omega * max_omega_weight
 
                     init_val = param_dict['init_val']
                     reg_lambda = param_dict['lambda']
@@ -186,8 +192,8 @@ class OmegaUpdate(optim.SGD):
                     param_dict['omega_list'] = omega_list
 
                     # if batch_index % 10 == 0:
-                        # print("in index {} ,param {}'s old omega is {}\nnew omega is {}"
-                        #       .format(batch_index, p, omega, new_omega))
+                    # print("in index {} ,param {}'s old omega is {}\nnew omega is {}"
+                    #       .format(batch_index, p, omega, new_omega))
 
                     reg_params[p] = param_dict
 

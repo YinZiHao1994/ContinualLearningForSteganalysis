@@ -85,7 +85,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             model = model.load_state_dict(checkpoint['state_dict'])
 
             print("Loading the optimizer")
-            optimizer = LocalSgd(model.reg_params, reg_lambda)
+            optimizer = LocalSgd(model.reg_params, reg_lambda, model.weight_params)
             optimizer.load_state_dict(checkpoint['optimizer'])
 
             print("Done")

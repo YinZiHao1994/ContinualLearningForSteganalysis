@@ -39,6 +39,10 @@ class SharedModel(nn.Module):
         super(SharedModel, self).__init__()
         self.tmodel = model
         self.reg_params = {}
+        # self.used_omega_weight = torch.tensor([0.3], requires_grad=True, dtype=torch.float64)
+        # self.max_omega_weight = torch.tensor([0.3], requires_grad=True, dtype=torch.float64)
+        self.weight_params = {'used_omega_weight': torch.tensor(0.3, requires_grad=True, dtype=torch.float64),
+                              'max_omega_weight': torch.tensor(0.7, requires_grad=True, dtype=torch.float64)}
 
     def forward(self, x):
         return self.tmodel(x)
