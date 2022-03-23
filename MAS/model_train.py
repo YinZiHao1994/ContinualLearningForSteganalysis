@@ -110,6 +110,7 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
     for epoch in range(start_epoch, omega_epochs):
 
+        reg_params = model.reg_params
         # run the omega accumulation at convergence of the loss function
         if epoch == omega_epochs - 1:
             phase = 'val'
@@ -120,7 +121,6 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
             model = compute_omega_grads_norm(model, dataloader_train, optimizer_ft, use_gpu)
 
             ############ 打印查看最大和最小的omega #############
-            reg_params = model.reg_params
             param_omega_list = []
             max_omega = None
             min_omega = None
@@ -240,12 +240,15 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                 output = model.tmodel(data)
                 del data
 
-                loss = model_criterion(output, label)
+                regulation = calculate_regulation(model, reg_params, use_gpu)
+
+                loss = model_criterion(output, label) + regulation
 
                 loss.backward()
                 # print (model.reg_params)
 
-                optimizer.step(model.reg_params)
+                # optimizer.step(model.reg_params)
+                optimizer.step()
 
                 data_num = label.size(0)
                 running_loss += loss.item() * data_num
@@ -302,3 +305,45 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
         time_elapsed // 60, time_elapsed % 60))
     # save the model and the performance
     save_model(model, task_no, epoch_accuracy)
+
+
+def calculate_regulation(model, reg_params, use_gpu):
+    weight_params = model.weight_params
+    used_omega_weight = weight_params['used_omega_weight']
+    max_omega_weight = weight_params['max_omega_weight']
+    parameters = model.tmodel.parameters()
+    regulation = 0
+    for p in parameters:
+        if p in reg_params:
+            param_dict = reg_params[p]
+
+            omega = param_dict['omega']
+            omega_list = param_dict['omega_list']
+            used_omega = 0
+            omega_list_length = len(omega_list)
+            max_omega = None
+
+            for i, ome in enumerate(omega_list):
+                #     used_omega = ome * (omega_list_length - i) + used_omega
+                if max_omega is None:
+                    max_omega = torch.zeros_like(ome)
+                # used_omega = ome * (omega_list_length - i) + used_omega
+                max_omega = torch.max(max_omega, ome)
+                used_omega = ome + used_omega
+                # if self.flag < 1:
+                #     print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
+                #     print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
+
+            used_omega = used_omega * used_omega_weight + max_omega * max_omega_weight
+            if used_omega.any().item():
+                init_val = param_dict['init_val']
+                reg_lambda = param_dict['lambda']
+                curr_param_value_copy = p.data.clone()
+                if use_gpu:
+                    curr_param_value_copy = curr_param_value_copy.cuda()
+                    init_val = init_val.cuda()
+                    used_omega = used_omega.cuda()
+                # get the difference
+                param_diff = curr_param_value_copy - init_val
+                regulation += torch.mul(param_diff ** 2, reg_lambda * used_omega)
+    return regulation

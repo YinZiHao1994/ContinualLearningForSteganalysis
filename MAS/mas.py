@@ -64,9 +64,11 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
     # optimizer_sp = LocalSgd(model.tmodel.parameters(), reg_lambda, lr, momentum=momentum, weight_decay=0.0005)
     # optimizer_sp = LocalSgd(filter(lambda p: p.requires_grad, model.tmodel.parameters()), reg_lambda,
     #                         model.weight_params, lr=lr, momentum=momentum, weight_decay=0.0005)
-    optimizer_sp = LocalSgd(
-        filter(lambda p: (p.requires_grad is not None and p.requires_grad) or p.requires_grad is None,
-               model.tmodel.parameters()), reg_lambda, model.weight_params, lr, momentum=momentum, weight_decay=0.0005)
+    # optimizer_sp = LocalSgd(
+    #     filter(lambda p: (p.requires_grad is not None and p.requires_grad) or p.requires_grad is None,
+    #            model.tmodel.parameters()), reg_lambda, model.weight_params, lr, momentum=momentum, weight_decay=0.0005)
+    optimizer_sp = optim.SGD((lambda p: (p.requires_grad is not None and p.requires_grad) or p.requires_grad is None,
+                              model.tmodel.parameters()), lr, momentum=momentum, weight_decay=0.0005)
     train_model(model, task_no, no_of_classes, optimizer_sp, model_criterion, dataloader_train, dataloader_test,
                 num_epochs, use_gpu, lr, reg_lambda)
 
