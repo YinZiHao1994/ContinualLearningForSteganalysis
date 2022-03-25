@@ -74,7 +74,8 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
                           model.tmodel.parameters())
     optimizer_sp = optim.SGD([
         {'params': filter_parms},
-        {'params': model.weight_params}],
+        # {'params': model.weight_params.values()}],
+        {'params': [model.used_omega_weight, model.max_omega_weight]}],
         lr, momentum=momentum, weight_decay=0.0005)
     train_model(model, task_no, no_of_classes, optimizer_sp, model_criterion, dataloader_train, dataloader_test,
                 num_epochs, use_gpu, lr, reg_lambda)

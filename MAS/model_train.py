@@ -77,18 +77,19 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
         else:
             print("Loading checkpoint '{}' ".format(checkpoint_file))
-            checkpoint = torch.load(checkpoint_file)
-            start_epoch = checkpoint['epoch']
-
-            print("Loading the model")
-            model = model_init(task_no, num_classes, use_gpu, True)
-            model = model.load_state_dict(checkpoint['state_dict'])
-
-            print("Loading the optimizer")
-            optimizer = LocalSgd(model.reg_params, reg_lambda, model.weight_params)
-            optimizer.load_state_dict(checkpoint['optimizer'])
-
-            print("Done")
+            raise RuntimeError('Loading checkpoint')
+            # checkpoint = torch.load(checkpoint_file)
+            # start_epoch = checkpoint['epoch']
+            #
+            # print("Loading the model")
+            # model = model_init(task_no, num_classes, use_gpu, True)
+            # model = model.load_state_dict(checkpoint['state_dict'])
+            #
+            # print("Loading the optimizer")
+            # optimizer = LocalSgd(model.reg_params, reg_lambda, model.weight_params)
+            # optimizer.load_state_dict(checkpoint['optimizer'])
+            #
+            # print("Done")
 
     ######################################################################################
 
@@ -244,9 +245,11 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                 regulation = calculate_regulation(model, reg_params, use_gpu)
                 if index % 50 == 0:
                     print("origin_loss = {} regulation = {},".format(origin_loss, regulation))
-                    weight_params = model.weight_params
-                    used_omega_weight = weight_params['used_omega_weight']
-                    max_omega_weight = weight_params['max_omega_weight']
+                    # weight_params = model.weight_params
+                    # used_omega_weight = weight_params['used_omega_weight']
+                    # max_omega_weight = weight_params['max_omega_weight']
+                    used_omega_weight = model.used_omega_weight
+                    max_omega_weight = model.max_omega_weight
                     print("used_omega_weight = {} max_omega_weight = {},".format(used_omega_weight, max_omega_weight))
 
                 loss = origin_loss + regulation
@@ -315,9 +318,11 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
 
 def calculate_regulation(model, reg_params, use_gpu):
-    weight_params = model.weight_params
-    used_omega_weight = weight_params['used_omega_weight']
-    max_omega_weight = weight_params['max_omega_weight']
+    # weight_params = model.weight_params
+    # used_omega_weight = weight_params['used_omega_weight']
+    # max_omega_weight = weight_params['max_omega_weight']
+    used_omega_weight = model.used_omega_weight
+    max_omega_weight = model.max_omega_weight
     parameters = model.tmodel.parameters()
     regulation = 0
     for p in parameters:
