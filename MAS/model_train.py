@@ -240,9 +240,16 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                 output = model.tmodel(data)
                 del data
 
+                origin_loss = model_criterion(output, label)
                 regulation = calculate_regulation(model, reg_params, use_gpu)
+                if index % 50 == 0:
+                    print("origin_loss = {} regulation = {},".format(origin_loss, regulation))
+                    weight_params = model.weight_params
+                    used_omega_weight = weight_params['used_omega_weight']
+                    max_omega_weight = weight_params['max_omega_weight']
+                    print("used_omega_weight = {} max_omega_weight = {},".format(used_omega_weight, max_omega_weight))
 
-                loss = model_criterion(output, label) + regulation
+                loss = origin_loss + regulation
 
                 loss.backward()
                 # print (model.reg_params)
@@ -345,5 +352,6 @@ def calculate_regulation(model, reg_params, use_gpu):
                     used_omega = used_omega.cuda()
                 # get the difference
                 param_diff = curr_param_value_copy - init_val
-                regulation += torch.mul(param_diff ** 2, reg_lambda * used_omega)
+                mul = torch.mul(param_diff ** 2, used_omega)
+                regulation += reg_lambda * mul.sum()
     return regulation

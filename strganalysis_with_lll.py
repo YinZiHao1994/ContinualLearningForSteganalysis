@@ -167,7 +167,7 @@ def main(dataset_steganography_list, reuse_model):
 
         forgetting = mas.compute_forgetting(model, task_num, dataloader_test, use_gpu)
 
-        print("The forgetting undergone on task {} is {:.4f}".format(task_num, forgetting))
+        print("The forgetting on task {} is {:.4f}".format(task_num, forgetting))
 
 
 def init_lambda_list(model):
