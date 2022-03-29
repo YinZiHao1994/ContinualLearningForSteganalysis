@@ -235,6 +235,17 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
                     data = Variable(data)
                     label = Variable(label)
 
+                if index % 50 == 0:
+                    # weight_params = model.weight_params
+                    # used_omega_weight = weight_params['used_omega_weight']
+                    # max_omega_weight = weight_params['max_omega_weight']
+                    used_omega_weight = model.used_omega_weight
+                    max_omega_weight = model.max_omega_weight
+                    print("used_omega_weight = {} sigmoid（used_omega_weight） = {},"
+                          .format(used_omega_weight, torch.sigmoid(used_omega_weight)))
+                    print("used_omega_weight.requires_grad = {} used_omega_weight.grad = {},".format(
+                        model.used_omega_weight.requires_grad, model.used_omega_weight.grad))
+
                 model.tmodel.to(device)
                 optimizer.zero_grad()
 
@@ -243,16 +254,9 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
                 origin_loss = model_criterion(output, label)
                 regulation = calculate_regulation(model, reg_params, use_gpu)
+                loss = origin_loss + regulation
                 if index % 50 == 0:
                     print("origin_loss = {} regulation = {},".format(origin_loss, regulation))
-                    # weight_params = model.weight_params
-                    # used_omega_weight = weight_params['used_omega_weight']
-                    # max_omega_weight = weight_params['max_omega_weight']
-                    used_omega_weight = model.used_omega_weight
-                    max_omega_weight = model.max_omega_weight
-                    print("used_omega_weight = {} max_omega_weight = {},".format(used_omega_weight, max_omega_weight))
-
-                loss = origin_loss + regulation
 
                 loss.backward()
                 # print (model.reg_params)
@@ -346,11 +350,13 @@ def calculate_regulation(model, reg_params, use_gpu):
                 #     print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
                 #     print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
 
-            used_omega = used_omega * used_omega_weight + max_omega * max_omega_weight
+            sigmoid = torch.sigmoid(model.used_omega_weight)
+            used_omega = used_omega * sigmoid + max_omega * (1 - sigmoid)
             if used_omega.any().item():
                 init_val = param_dict['init_val']
                 reg_lambda = param_dict['lambda']
-                curr_param_value_copy = p.data.clone()
+                # curr_param_value_copy = p.data.clone()
+                curr_param_value_copy = p
                 if use_gpu:
                     curr_param_value_copy = curr_param_value_copy.cuda()
                     init_val = init_val.cuda()
