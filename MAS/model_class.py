@@ -41,9 +41,22 @@ class SharedModel(nn.Module):
         self.reg_params = {}
         # self.used_omega_weight = torch.tensor([0.3], requires_grad=True, dtype=torch.float64)
         # self.max_omega_weight = torch.tensor([0.3], requires_grad=True, dtype=torch.float64)
-        self.used_omega_weight = torch.tensor(0.3, requires_grad=True)
-        self.max_omega_weight = torch.tensor(0.7, requires_grad=True)
+        self.used_omega_weight = torch.tensor(-1.0, requires_grad=False)
+        self.max_omega_weight = torch.tensor(0.7, requires_grad=False)
         # self.weight_params = {'used_omega_weight': used_omega_weight, 'max_omega_weight': max_omega_weight}
 
     def forward(self, x):
         return self.tmodel(x)
+
+
+class AutomaticWeightedLoss(nn.Module):
+    def __init__(self, num=2):
+        super(AutomaticWeightedLoss, self).__init__()
+        params = torch.ones(num, requires_grad=True)
+        self.params = torch.nn.Parameter(params)
+
+    def forward(self, *x):
+        loss_sum = 0
+        for i, loss in enumerate(x):
+            loss_sum += 0.5 / (self.params[i] ** 2) * loss + torch.log(1 + self.params[i] ** 2)
+        return loss_sum

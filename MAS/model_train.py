@@ -23,12 +23,13 @@ import time
 # print(sys.path)
 from MAS.masUtils.model_utils import *
 from MAS.masUtils.utils import *
+from MAS.model_class import *
 
 from MAS.optimizer_lib import *
 import dataAnalyze
 
 
-def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloader_train, dataloader_test, num_epochs,
+def train_model(model, task_no, num_classes, model_criterion, dataloader_train, dataloader_test, num_epochs,
                 use_gpu=False, lr=0.001, reg_lambda=0.01):
     """
     Inputs:
@@ -106,9 +107,26 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
     since_time = time.time()
 
+    filter_parms = filter(lambda p: (p.requires_grad is not None and p.requires_grad) or p.requires_grad is None,
+                          model.tmodel.parameters())
+    # optimizer = optim.SGD([
+    #     {'params': filter_parms},
+    #     # {'params': model.weight_params.values()}],
+    #     {'params': [model.used_omega_weight, model.max_omega_weight]}],
+    #     lr, momentum=0.9, weight_decay=0.0005)
+
+    automatic_weighted_loss = AutomaticWeightedLoss(2)
+    optimizer = optim.Adam([
+        {'params': filter_parms},
+        # {'params': [model.used_omega_weight, model.max_omega_weight]},
+        {'params': automatic_weighted_loss.parameters()}
+    ],
+        lr, weight_decay=0.0005)
+
     step_size = 15
     scheduler_gama = 0.50
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
+
     for epoch in range(start_epoch, omega_epochs):
 
         reg_params = model.reg_params
@@ -254,9 +272,11 @@ def train_model(model, task_no, num_classes, optimizer, model_criterion, dataloa
 
                 origin_loss = model_criterion(output, label)
                 regulation = calculate_regulation(model, reg_params, use_gpu)
-                loss = origin_loss + regulation
+                # loss = origin_loss + regulation
+                loss = automatic_weighted_loss(origin_loss, regulation)
                 if index % 50 == 0:
-                    print("origin_loss = {} regulation = {},".format(origin_loss, regulation))
+                    print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
+                    print(automatic_weighted_loss.parameters())
 
                 loss.backward()
                 # print (model.reg_params)
