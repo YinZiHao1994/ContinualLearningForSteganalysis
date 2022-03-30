@@ -118,6 +118,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     automatic_weighted_loss = AutomaticWeightedLoss(2)
     optimizer = optim.SGD([
         {'params': filter_parms},
+        {'params': model.lambda_list},
         # {'params': [model.used_omega_weight, model.max_omega_weight]},
         {'params': automatic_weighted_loss.parameters()}
     ],
@@ -254,15 +255,15 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                     label = Variable(label)
 
                 # if index % 50 == 0:
-                    # weight_params = model.weight_params
-                    # used_omega_weight = weight_params['used_omega_weight']
-                    # max_omega_weight = weight_params['max_omega_weight']
-                    # used_omega_weight = model.used_omega_weight
-                    # max_omega_weight = model.max_omega_weight
-                    # print("used_omega_weight = {} sigmoid（used_omega_weight） = {},"
-                    #       .format(used_omega_weight, torch.sigmoid(used_omega_weight)))
-                    # print("used_omega_weight.requires_grad = {} used_omega_weight.grad = {},".format(
-                    #     model.used_omega_weight.requires_grad, model.used_omega_weight.grad))
+                # weight_params = model.weight_params
+                # used_omega_weight = weight_params['used_omega_weight']
+                # max_omega_weight = weight_params['max_omega_weight']
+                # used_omega_weight = model.used_omega_weight
+                # max_omega_weight = model.max_omega_weight
+                # print("used_omega_weight = {} sigmoid（used_omega_weight） = {},"
+                #       .format(used_omega_weight, torch.sigmoid(used_omega_weight)))
+                # print("used_omega_weight.requires_grad = {} used_omega_weight.grad = {},".format(
+                #     model.used_omega_weight.requires_grad, model.used_omega_weight.grad))
 
                 model.tmodel.to(device)
                 optimizer.zero_grad()
@@ -277,8 +278,10 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                 else:
                     regulation = calculate_regulation(model, reg_params, use_gpu)
                     loss = automatic_weighted_loss(origin_loss, regulation)
-                    if index % 50 == 0:
+                    if index % 100 == 0:
                         print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
+                        for i, lam in enumerate(model.lambda_list):
+                            print("lambda in position {} is {}".format(i, lam))
                         for b, batch in enumerate(automatic_weighted_loss.parameters()):
                             print("automatic_weighted_loss {} is {}".format(b, batch))
 
@@ -374,8 +377,8 @@ def calculate_regulation(model, reg_params, use_gpu):
                 #     print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
                 #     print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
 
-            sigmoid = torch.sigmoid(model.used_omega_weight)
-            used_omega = used_omega * sigmoid + max_omega * (1 - sigmoid)
+            used_omega_weight_sigmoid = torch.sigmoid(model.used_omega_weight)
+            used_omega = used_omega * used_omega_weight_sigmoid + max_omega * (1 - used_omega_weight_sigmoid)
             if used_omega.any().item():
                 init_val = param_dict['init_val']
                 reg_lambda = param_dict['lambda']
@@ -388,5 +391,5 @@ def calculate_regulation(model, reg_params, use_gpu):
                 # get the difference
                 param_diff = curr_param_value_copy - init_val
                 mul = torch.mul(param_diff ** 2, used_omega)
-                regulation += reg_lambda * mul.sum()
+                regulation += torch.sigmoid(reg_lambda) * mul.sum()
     return regulation

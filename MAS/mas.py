@@ -29,7 +29,7 @@ from MAS.model_train import *
 
 
 def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test, lr=0.001,
-              lambda_list=None, reg_lambda=0.01, use_gpu=False):
+              reg_lambda=0.01, use_gpu=False):
     """
     Inputs:
     1) model: A reference to the model that is being exposed to the data for the task
@@ -52,7 +52,7 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
     if task_no == 1:
         # initialize the reg_params for this task
         model, freeze_layers = create_freeze_layers(model, num_freeze_layers)
-        model = init_reg_params(model, use_gpu, lambda_list, freeze_layers)
+        model = init_reg_params(model, use_gpu, model.lambda_list, freeze_layers)
 
     else:
         # initialize the reg_params for this task

@@ -44,9 +44,19 @@ class SharedModel(nn.Module):
         self.used_omega_weight = torch.tensor(-1.0, requires_grad=False)
         self.max_omega_weight = torch.tensor(0.7, requires_grad=False)
         # self.weight_params = {'used_omega_weight': used_omega_weight, 'max_omega_weight': max_omega_weight}
+        self.lambda_list = init_lambda_list(self)
 
     def forward(self, x):
         return self.tmodel(x)
+
+
+def init_lambda_list(model):
+    # 每一层单独设定lambda,后面通过sigmoid使它们在一定范围内训练调整
+    model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
+    lambda_list = []
+    for i in range(model_layer_length):
+        lambda_list.extend(torch.tensor(0.0, requires_grad=True))
+    return lambda_list
 
 
 class AutomaticWeightedLoss(nn.Module):

@@ -142,9 +142,8 @@ def main(dataset_steganography_list, reuse_model):
 
         print("Training the model on task {}, λ = {}, lr = {}".format(task_num, reg_lambda, actual_lr))
 
-        lambda_list = init_lambda_list(model)
         mas.mas_train(model, task_num, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
-                      actual_lr, lambda_list=lambda_list, reg_lambda=reg_lambda, use_gpu=use_gpu)
+                      actual_lr, reg_lambda=reg_lambda, use_gpu=use_gpu)
 
     print("The training process on the {} tasks is completed".format(tasks_length))
 
@@ -168,20 +167,6 @@ def main(dataset_steganography_list, reuse_model):
         forgetting = mas.compute_forgetting(model, task_num, dataloader_test, use_gpu)
 
         print("The forgetting on task {} is {:.4f}".format(task_num, forgetting))
-
-
-def init_lambda_list(model):
-    # 每一层单独设定lambda
-    model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
-    prior_length = 0
-    lambda_list = []
-    for index, (name, param) in enumerate(model.tmodel.named_parameters()):
-        if name == 'bn72.bias':
-            prior_length = index
-            lambda_list = [prior_lambda] * (prior_length + 1)
-    lambda_list.extend([later_lambda] * (model_layer_length - prior_length - 1))
-    print(lambda_list)
-    return lambda_list
 
 
 def init_console_log():
@@ -215,4 +200,3 @@ if __name__ == '__main__':
                 {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN}]
     main(ste_list, False)
     print("end in {}".format(time.ctime()))
-
