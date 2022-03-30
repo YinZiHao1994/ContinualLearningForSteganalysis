@@ -116,12 +116,12 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     #     lr, momentum=0.9, weight_decay=0.0005)
 
     automatic_weighted_loss = AutomaticWeightedLoss(2)
-    optimizer = optim.Adam([
+    optimizer = optim.SGD([
         {'params': filter_parms},
         # {'params': [model.used_omega_weight, model.max_omega_weight]},
         {'params': automatic_weighted_loss.parameters()}
     ],
-        lr, weight_decay=0.0005)
+        lr, momentum=0.9, weight_decay=0.0005)
 
     step_size = 15
     scheduler_gama = 0.50
@@ -253,16 +253,16 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                     data = Variable(data)
                     label = Variable(label)
 
-                if index % 50 == 0:
+                # if index % 50 == 0:
                     # weight_params = model.weight_params
                     # used_omega_weight = weight_params['used_omega_weight']
                     # max_omega_weight = weight_params['max_omega_weight']
-                    used_omega_weight = model.used_omega_weight
-                    max_omega_weight = model.max_omega_weight
-                    print("used_omega_weight = {} sigmoid（used_omega_weight） = {},"
-                          .format(used_omega_weight, torch.sigmoid(used_omega_weight)))
-                    print("used_omega_weight.requires_grad = {} used_omega_weight.grad = {},".format(
-                        model.used_omega_weight.requires_grad, model.used_omega_weight.grad))
+                    # used_omega_weight = model.used_omega_weight
+                    # max_omega_weight = model.max_omega_weight
+                    # print("used_omega_weight = {} sigmoid（used_omega_weight） = {},"
+                    #       .format(used_omega_weight, torch.sigmoid(used_omega_weight)))
+                    # print("used_omega_weight.requires_grad = {} used_omega_weight.grad = {},".format(
+                    #     model.used_omega_weight.requires_grad, model.used_omega_weight.grad))
 
                 model.tmodel.to(device)
                 optimizer.zero_grad()
@@ -271,12 +271,16 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                 del data
 
                 origin_loss = model_criterion(output, label)
-                regulation = calculate_regulation(model, reg_params, use_gpu)
                 # loss = origin_loss + regulation
-                loss = automatic_weighted_loss(origin_loss, regulation)
-                if index % 50 == 0:
-                    print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
-                    print(automatic_weighted_loss.parameters())
+                if task_no == 1:
+                    loss = origin_loss
+                else:
+                    regulation = calculate_regulation(model, reg_params, use_gpu)
+                    loss = automatic_weighted_loss(origin_loss, regulation)
+                    if index % 50 == 0:
+                        print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
+                        for b, batch in enumerate(automatic_weighted_loss.parameters()):
+                            print("automatic_weighted_loss {} is {}".format(b, batch))
 
                 loss.backward()
                 # print (model.reg_params)

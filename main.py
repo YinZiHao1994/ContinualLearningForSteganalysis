@@ -92,7 +92,7 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
                          'Loss {loss:.4f} \t'
                          .format(epoch, i, len(train_loader), acc=100. * train_correct / total,
                                  loss=train_loss / (i + 1)))
-    diagram_save_path = os.path.join(os.getcwd(), "diagram", steganography.c)
+    diagram_save_path = os.path.join(os.getcwd(), "diagram", steganography.name)
     dataAnalyze.save_loss_plot(diagram_save_path, counter, loss_history,
                                "loss_train" + "_" + str(epoch))
     dataAnalyze.save_accurate_plot(diagram_save_path, counter, acc_history,
@@ -203,18 +203,18 @@ def individual_learn(target_dataset, target_steganography, reuse_model, reused_s
                            reused_dataset)
     target_model_save_file_name = generate_model_save_file_name(target_dataset, target_steganography)
     target_model_save_path = os.path.join(MODEL_EXPORT_PATH, target_model_save_file_name)
-    params_save_file_name = 'SRNET_model_params_' + target_dataset.c + '_' + target_steganography.c + '04.tar'
+    params_save_file_name = 'SRNET_model_params_' + target_dataset.name + '_' + target_steganography.name + '04.tar'
     params_save_file_path = os.path.join(MODEL_EXPORT_PATH, params_save_file_name)
 
     model = train_model(device, model, params_save_file_path, train_loader, valid_loader, target_steganography)
     torch.save(model, target_model_save_path)
 
-    logging.info('\nTest model {}'.format(target_steganography.c))
+    logging.info('\nTest model {}'.format(target_steganography.name))
     evaluate(model, device, test_loader)
 
 
 def generate_model_save_file_name(dataset_enum, steganography_enum):
-    model_save_file_name = 'SRNET_model_' + dataset_enum.c + '_' + steganography_enum.c + '04.pth'
+    model_save_file_name = 'SRNET_model_' + dataset_enum.name + '_' + steganography_enum.name + '04.pth'
     return model_save_file_name
 
 
@@ -224,10 +224,10 @@ def generate_model(device, target_dataset, target_steganography, reuse_model, re
     # 加载复用之前已保存的训练完的模型
     if reuse_model:
         if reused_steganography is None:
-            print("选择了希望复用模型，但没有指定具体的复用模型，将使用目标隐写算法: {}".format(target_steganography.c))
+            print("选择了希望复用模型，但没有指定具体的复用模型，将使用目标隐写算法: {}".format(target_steganography.name))
             reused_steganography = target_steganography
         if reused_dataset is None:
-            print('选择了希望复用模型，但没有指定复用模型的数据集，将使用目标数据集: {}'.format(target_dataset.c))
+            print('选择了希望复用模型，但没有指定复用模型的数据集，将使用目标数据集: {}'.format(target_dataset.name))
             reused_dataset = target_dataset
         reused_model_save_file_name = generate_model_save_file_name(reused_dataset, reused_steganography)
         reused_model_save_path = os.path.join(MODEL_EXPORT_PATH, reused_model_save_file_name)
@@ -269,18 +269,18 @@ def transfer_learning(dataset_steganography_list):
 
         model = generate_model(device, None, None, True, last_steganography, last_dataset)
         logging.info(
-            'Test transfer learning {}-{}model\'s performance in former steganography {}-{}'.format(last_dataset.c,
-                                                                                                    last_steganography.c,
-                                                                                                    dataset_enum.c,
-                                                                                                    steganography_enum.c))
+            'Test transfer learning {}-{}model\'s performance in former steganography {}-{}'.format(last_dataset.name,
+                                                                                                    last_steganography.name,
+                                                                                                    dataset_enum.name,
+                                                                                                    steganography_enum.name))
         evaluate(model, device, test_loader)
 
 
 def init_console_log():
     log_file_name = 'ste_transfer_learning'
     for ste in ste_list:
-        dataset_name = ste['dataset'].c
-        steganography_name = ste['steganography'].c
+        dataset_name = ste['dataset'].name
+        steganography_name = ste['steganography'].name
         log_file_name = log_file_name + '[' + dataset_name + '-' + steganography_name + ']'
     log_file_name = log_file_name + ',num_epochs-{}'.format(EPOCHS)
     log_file_name = log_file_name + '.log'
@@ -332,7 +332,7 @@ def train_model(device, model, params_save_file_path, train_loader, valid_loader
 def init_logger(dataset_enum, steganography_enum):
     # Log files
     # log_name = 'SRNET_params_boss_256_HILL04.log'
-    log_name = 'SRNET_params_' + dataset_enum.c + '_' + steganography_enum.c + '04.log'
+    log_name = 'SRNET_params_' + dataset_enum.name + '_' + steganography_enum.name + '04.log'
     log_path = os.path.join(LOG_PATH, log_name)
     if not os.path.exists(LOG_PATH):
         os.makedirs(LOG_PATH)
