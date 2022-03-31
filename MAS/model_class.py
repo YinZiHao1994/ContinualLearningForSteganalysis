@@ -51,11 +51,18 @@ class SharedModel(nn.Module):
 
 
 def init_lambda_list(model):
-    # 每一层单独设定lambda,后面通过sigmoid使它们在一定范围内训练调整
+    prior_lambda = 2
+    later_lambda = 1
+    # 每一层单独设定lambda
     model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
+    prior_length = 0
     lambda_list = []
-    for i in range(model_layer_length):
-        lambda_list.append(torch.tensor(0.0, requires_grad=True))
+    for index, (name, param) in enumerate(model.tmodel.named_parameters()):
+        if name == 'bn72.bias':
+            prior_length = index
+            lambda_list = [prior_lambda] * (prior_length + 1)
+    lambda_list.extend([later_lambda] * (model_layer_length - prior_length - 1))
+    print(lambda_list)
     return lambda_list
 
 

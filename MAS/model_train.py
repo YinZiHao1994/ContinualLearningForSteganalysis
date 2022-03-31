@@ -118,7 +118,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     automatic_weighted_loss = AutomaticWeightedLoss(2)
     optimizer = optim.SGD([
         {'params': filter_parms},
-        {'params': model.lambda_list},
+        # {'params': model.lambda_list},
         # {'params': [model.used_omega_weight, model.max_omega_weight]},
         {'params': automatic_weighted_loss.parameters()}
     ],
@@ -280,8 +280,8 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                     loss = automatic_weighted_loss(origin_loss, regulation)
                     if index % 100 == 0:
                         print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
-                        for i, lam in enumerate(model.lambda_list):
-                            print("lambda in position {} is {}".format(i, lam))
+                        # for i, lam in enumerate(model.lambda_list):
+                        #     print("lambda in position {} is {}".format(i, lam))
                         for b, batch in enumerate(automatic_weighted_loss.parameters()):
                             print("automatic_weighted_loss {} is {}".format(b, batch))
 
@@ -391,5 +391,5 @@ def calculate_regulation(model, reg_params, use_gpu):
                 # get the difference
                 param_diff = curr_param_value_copy - init_val
                 mul = torch.mul(param_diff ** 2, used_omega)
-                regulation += torch.sigmoid(reg_lambda) * mul.sum()
+                regulation += reg_lambda * mul.sum()
     return regulation
