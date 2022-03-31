@@ -55,7 +55,7 @@ def init_lambda_list(model):
     model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
     lambda_list = []
     for i in range(model_layer_length):
-        lambda_list.extend(torch.tensor(0.0, requires_grad=True))
+        lambda_list.append(torch.tensor(0.0, requires_grad=True))
     return lambda_list
 
 

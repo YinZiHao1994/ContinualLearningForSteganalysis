@@ -115,7 +115,7 @@ def create_task_dir(task_no, no_of_classes, store_path):
     return
 
 
-def model_inference(task_no, use_gpu=False):
+def model_inference(task_no, task_length, use_gpu=False):
     """
     Inputs
     1) task_no: The task number for which the model is being evaluated
@@ -126,6 +126,7 @@ def model_inference(task_no, use_gpu=False):
 
     Function: Combines the classification head for a particular task with the shared model and
     returns a reference to the model is used for testing the process
+    :param task_length:
 
     """
     device = torch.device("cuda" if use_gpu else "cpu")
@@ -146,9 +147,10 @@ def model_inference(task_no, use_gpu=False):
     # print (num_classes)
     # in_features = model.tmodel.classifier[-1].in_features
 
-    complete_model_path = os.path.join(path_to_model, 'model.pth.tar')
+    complete_model_path = os.path.join(path_to_model, 'model_in_task_{}'.format(task_length) + '.pth.tar')
     if not os.path.isfile(complete_model_path):
         raise RuntimeError("保存的模型路径 {} 不存在".format(complete_model_path))
+    print("load model from {}".format(complete_model_path))
     model = torch.load(complete_model_path)
 
     # 针对 SRNet 的情况
@@ -227,7 +229,6 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
 
     path = os.path.join(path_to_model, "shared_model.pth")
     path_to_reg = os.path.join(path_to_model, "reg_params.pickle")
-    complete_model_path = os.path.join(path_to_model, 'model.pth.tar')
 
     model = None
     if task_num == 1:
@@ -246,6 +247,7 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
         #
         #     model.reg_params = reg_params
     else:
+        complete_model_path = os.path.join(path_to_model, 'model_in_task_{}'.format(task_num - 1) + '.pth.tar')
         if not os.path.isfile(complete_model_path):
             raise RuntimeError("保存的模型路径 {} 不存在".format(complete_model_path))
         print("load model from {}".format(complete_model_path))
@@ -312,7 +314,7 @@ def save_model(model, task_no, epoch_accuracy):
 
     # save the model at the specified location
     # torch.save(model.state_dict(), os.path.join(path_to_model, "shared_model.pth"))
-    torch.save(model, os.path.join(path_to_model, 'model.pth.tar'))
+    torch.save(model, os.path.join(path_to_model, 'model_in_task_{}'.format(task_no) + '.pth.tar'))
     # save the classification head at the task directory
     torch.save(ref.state_dict(), os.path.join(path_to_head, "head.pth"))
 
