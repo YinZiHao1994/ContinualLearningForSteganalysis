@@ -56,10 +56,17 @@ def init_reg_params(model, use_gpu, lambda_list, freeze_layers=None):
             omega = torch.zeros(param.size())
             omega = omega.to(device)
             omega_list = [omega]
+            first_derivative = torch.zeros(param.size())
+            first_derivative = first_derivative.to(device)
+            first_derivative_list = [first_derivative]
+            second_derivative = torch.zeros(param.size())
             init_val = param.data.clone()
             if index >= lambda_list_length:
                 raise RuntimeError("index {} out of lambda_list_length {}".format(index, lambda_list_length))
-            param_dict = {'omega': omega, 'init_val': init_val, 'lambda': lambda_list[index], 'omega_list': omega_list}
+            param_dict = {'omega': omega, 'omega_list': omega_list,
+                          'first_derivative': first_derivative, 'first_derivative_list': first_derivative_list,
+                          'second_derivative': second_derivative,
+                          'init_val': init_val, 'lambda': lambda_list[index]}
 
             # for first task, omega is initialized to zero
 
@@ -107,6 +114,7 @@ def init_reg_params_across_tasks(model, use_gpu, freeze_layers=None):
 
                 # Store the previous values of omega
                 prev_omega = param_dict['omega']
+                first_derivative = param_dict['first_derivative']
 
                 # Initialize a new omega
                 new_omega = torch.zeros(param.size())
@@ -124,6 +132,11 @@ def init_reg_params_across_tasks(model, use_gpu, freeze_layers=None):
                 omega_list = param_dict['omega_list']
                 omega_list.append(new_omega)
                 param_dict['omega_list'] = omega_list
+
+                first_derivative_list = param_dict['first_derivative_list']
+                new_first_derivative = torch.zeros(param.size())
+                first_derivative_list.append(new_first_derivative)
+                param_dict['first_derivative_list'] = first_derivative_list
 
                 # the key for this dictionary is the name of the layer
                 reg_params[param] = param_dict
@@ -190,9 +203,8 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
     """
     # Alexnet object
     model.tmodel.eval()
-
-    index = 0
-    for sample in dataloader:
+    dataloader_len = len(dataloader)
+    for index, sample in enumerate(dataloader):
 
         # get the inputs and labels
         # inputs, labels = sample
@@ -227,13 +239,13 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         del squared_l2_norm
 
         # compute gradients for these parameters
-        sum_norm.backward()
+        sum_norm.backward(create_graph=True)
 
         # optimizer.step computes the omega values for the new batches of sample
-        optimizer.step(model.reg_params, index, labels.size(0), use_gpu)
+        optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
+        sum_norm.backward()
+        optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
         del labels
-
-        index = index + 1
 
     return model
 
