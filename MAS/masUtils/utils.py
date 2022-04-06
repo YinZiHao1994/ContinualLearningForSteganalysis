@@ -201,7 +201,6 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
     addition to this, the function also accumulates the values of omega across the items of a task
 
     """
-    # Alexnet object
     model.tmodel.eval()
     dataloader_len = len(dataloader)
     for index, sample in enumerate(dataloader):
@@ -239,15 +238,92 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         del squared_l2_norm
 
         # compute gradients for these parameters
-        sum_norm.backward(create_graph=True)
+        # sum_norm.backward(create_graph=True)
 
         # optimizer.step computes the omega values for the new batches of sample
-        optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
-        sum_norm.backward()
-        optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
+        # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
+        param_groups = optimizer.param_groups
+        if len(param_groups) > 1:
+            raise RuntimeError('param_groups length is {}'.format(len(param_groups)))
+        params = param_groups[0]['params']
+
+        one_order_gradients = torch.autograd.grad(outputs=sum_norm, inputs=params,
+                                                  grad_outputs=torch.ones(sum_norm.size()),
+                                                  retain_graph=True, create_graph=True)[0]
+
+        deal_with_derivative(model, index, dataloader_len, labels.size(0), params, one_order_gradients, 1, use_gpu)
+
+        two_order_gradients = torch.autograd.grad(outputs=one_order_gradients, inputs=params,
+                                                  grad_outputs=torch.ones(one_order_gradients.size()),
+                                                  create_graph=False)[0]
+        deal_with_derivative(model, index, dataloader_len, labels.size(0), params, two_order_gradients, 2, use_gpu)
+        # one_order_gradients.backward(create_graph=False)
+        # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
         del labels
 
     return model
+
+
+def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params, gradients, derivative_order, use_gpu):
+    reg_params = model.reg_params
+    for param_index, param in enumerate(params):
+        if param in reg_params:
+            grad = gradients[param_index]
+            if grad is None:
+                continue
+            # The absolute value of the grad_data that is to be added to first_derivative
+            grad_data_copy = grad.clone()
+            # grad_data_copy = grad_data_copy.abs()
+
+            param_dict = reg_params[param]
+            if derivative_order == 1:
+                first_derivative = param_dict['first_derivative']
+                first_derivative = first_derivative.to(torch.device("cuda:0" if use_gpu else "cpu"))
+
+                current_size = (batch_index + 1) * batch_size
+                prev_size = batch_index * batch_size
+                step_size = 1 / float(current_size)
+
+                # Incremental update for the first_derivative
+                # sum up the magnitude of the gradient
+                new_first_derivative = ((first_derivative.mul(prev_size)).add(grad_data_copy)).div(current_size)
+                param_dict['first_derivative'] = new_first_derivative
+                if batch_index == dataloader_len - 1:
+                    first_derivative_list = param_dict['first_derivative_list']
+                    first_derivative_list[-1] = new_first_derivative
+                    param_dict['first_derivative_list'] = first_derivative_list
+
+                # if batch_index % 10 == 0:
+                # print("in index {} ,param {}'s old first_derivative is {}\nnew first_derivative is {}"
+                #       .format(batch_index, p, first_derivative, new_first_derivative))
+
+                reg_params[param] = param_dict
+                # 优化器的梯度是自动累加的，求完一阶导数后要清空tensor的grad，否则二阶导数的值会在一阶导数的基础上相加
+                # p.grad.data.zero_()
+            elif derivative_order == 2:
+                second_derivative = param_dict['second_derivative']
+                second_derivative = second_derivative.to(torch.device("cuda:0" if use_gpu else "cpu"))
+                current_size = (batch_index + 1) * batch_size
+                prev_size = batch_index * batch_size
+                step_size = 1 / float(current_size)
+                new_second_derivative = ((second_derivative.mul(prev_size)).add(grad_data_copy)).div(
+                    current_size)
+                param_dict['second_derivative'] = new_second_derivative
+                if batch_index == dataloader_len - 1:
+                    # calculate curvature
+                    new_second_derivative = new_second_derivative.abs()
+                    first_derivative = param_dict['first_derivative']
+                    bottom = (1 + first_derivative ** 2) ** (3.0 / 2)
+                    curvature = new_second_derivative / bottom
+                    omega_list = param_dict['omega_list']
+                    omega = first_derivative.abs() * 10 / curvature
+                    print("first_derivative = {} ,new_second_derivative = {} ,curvature = {} ,omega = {}"
+                          .format(first_derivative, new_second_derivative, curvature, omega))
+                    omega_list[-1] = omega
+                    param_dict['omega_list'] = omega_list
+                reg_params[param] = param_dict
+            else:
+                raise RuntimeError("derivative_order ={} undefined".format(derivative_order))
 
 
 # need a different function for grads vector

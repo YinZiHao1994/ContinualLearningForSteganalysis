@@ -194,7 +194,7 @@ class OmegaUpdate(optim.SGD):
                         reg_params[p] = param_dict
                         # pytorch的梯度是自动累加的，求完一阶导数后要清空tensor的grad，否则二阶导数的值会在一阶导数的基础上相加
                         p.grad.data.zero_()
-                    if derivative_order == 2:
+                    elif derivative_order == 2:
                         second_derivative = param_dict['second_derivative']
                         second_derivative = second_derivative.to(torch.device("cuda:0" if use_gpu else "cpu"))
                         current_size = (batch_index + 1) * batch_size
@@ -211,8 +211,8 @@ class OmegaUpdate(optim.SGD):
                             curvature = new_second_derivative / bottom
                             omega_list = param_dict['omega_list']
                             omega = first_derivative.abs() * 10 / curvature
-                            print("first_derivative = {} , curvature = {} , omega = {}"
-                                  .format(first_derivative, curvature, omega))
+                            print("first_derivative = {} ,new_second_derivative = {} ,curvature = {} ,omega = {}"
+                                  .format(first_derivative, new_second_derivative, curvature, omega))
                             omega_list[-1] = omega
                             param_dict['omega_list'] = omega_list
                         reg_params[p] = param_dict
