@@ -376,28 +376,10 @@ def generate_data_loaders(dataset_enum, steganography_enum):
     return test_loader, train_loader, valid_loader
 
 
-global a
-def method_name():
-    a = torch.tensor(0.3, requires_grad=True)
-    b = 0
-    b = 4 + b
-    c = a * b
-    return c
-
-def gr():
-    c = method_name()
-    c.backward()
-    print(a.grad)
-
-
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     # individual_learn(SteganographyEnum.HILL, False, SteganographyEnum.HILL)
-    # transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
-    # ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
-    #             {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}]
-    # transfer_learning(ste_list)
-
-    gr()
-
-
+    transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
+    ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+                {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}]
+    transfer_learning(ste_list)

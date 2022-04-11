@@ -5,6 +5,8 @@
 from __future__ import print_function
 
 import torch
+from torch.autograd import Variable
+import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
 
@@ -219,7 +221,8 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         device = torch.device("cuda:0" if use_gpu else "cpu")
         if use_gpu:
             inputs, labels = inputs.to(device), labels.to(device)
-
+        else:
+            inputs, labels = Variable(inputs), Variable(labels)
         # Zero the parameter gradients
         optimizer.zero_grad()
 
@@ -238,25 +241,48 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         del squared_l2_norm
 
         # compute gradients for these parameters
-        # sum_norm.backward(create_graph=True)
+        sum_norm.backward(create_graph=True)
 
         # optimizer.step computes the omega values for the new batches of sample
-        # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
+        optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
+
+        # 二阶导数的计算
         param_groups = optimizer.param_groups
         if len(param_groups) > 1:
             raise RuntimeError('param_groups length is {}'.format(len(param_groups)))
         params = param_groups[0]['params']
+        grad_params = torch.autograd.grad(outputs=sum_norm, inputs=params, create_graph=True)
+        # torch.autograd.grad does not accumuate the gradients into the .grad attributes
+        # It instead returns the gradients as Variable tuples.
 
-        one_order_gradients = torch.autograd.grad(outputs=sum_norm, inputs=params,
-                                                  grad_outputs=torch.ones(sum_norm.size()),
-                                                  retain_graph=True, create_graph=True)[0]
+        # now compute the 2-norm of the grad_params
+        grad_norm = 0
+        for grad in grad_params:
+            grad_norm += grad.pow(2).sum()
+        grad_norm = grad_norm.sqrt()
 
-        deal_with_derivative(model, index, dataloader_len, labels.size(0), params, one_order_gradients, 1, use_gpu)
+        # take the gradients wrt grad_norm. backward() will accumulate
+        # the gradients into the .grad attributes
+        grad_norm.backward()
 
-        two_order_gradients = torch.autograd.grad(outputs=one_order_gradients, inputs=params,
-                                                  grad_outputs=torch.ones(one_order_gradients.size()),
-                                                  create_graph=False)[0]
-        deal_with_derivative(model, index, dataloader_len, labels.size(0), params, two_order_gradients, 2, use_gpu)
+        optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
+
+        # param_groups = optimizer.param_groups
+        # if len(param_groups) > 1:
+        #     raise RuntimeError('param_groups length is {}'.format(len(param_groups)))
+        # params = param_groups[0]['params']
+        #
+        # one_order_gradients = torch.autograd.grad(outputs=sum_norm, inputs=params,
+        #                                           grad_outputs=torch.ones(sum_norm.size()),
+        #                                           retain_graph=True, create_graph=True)[0]
+        #
+        # deal_with_derivative(model, index, dataloader_len, labels.size(0), params, one_order_gradients, 1, use_gpu)
+        #
+        # two_order_gradients = torch.autograd.grad(outputs=one_order_gradients, inputs=params,
+        #                                           grad_outputs=torch.ones(one_order_gradients.size()),
+        #                                           create_graph=False)[0]
+        # deal_with_derivative(model, index, dataloader_len, labels.size(0), params, two_order_gradients, 2, use_gpu)
+
         # one_order_gradients.backward(create_graph=False)
         # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
         del labels
