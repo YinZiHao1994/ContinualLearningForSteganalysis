@@ -160,7 +160,7 @@ def main(dataset_steganography_list, reuse_model):
         no_of_classes = 2
 
         # load the model for inference
-        model = model_utils.model_inference(task_num, tasks_length + 1, use_gpu)
+        model = model_utils.model_inference(task_num, tasks_length, use_gpu)
         model.to(device)
         print("model: ", model)
 

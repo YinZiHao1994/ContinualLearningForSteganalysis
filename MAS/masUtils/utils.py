@@ -275,7 +275,7 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         # grad_norm.backward()
         # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
         two_order_gradients = torch.autograd.grad(outputs=grad_norm, inputs=filter_parms)
-        deal_with_derivative(model, index, dataloader_len, labels.size(0), filter_parms, two_order_gradients, 1,
+        deal_with_derivative(model, index, dataloader_len, labels.size(0), filter_parms, two_order_gradients, 2,
                              use_gpu)
 
         # param_groups = optimizer.param_groups
@@ -311,6 +311,7 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
         if param in reg_params:
             grad = gradients[param_index]
             if grad is None:
+                print("param index {} grad is None".format(param_index))
                 continue
             # The absolute value of the grad_data that is to be added to first_derivative
             grad_data_copy = grad.clone()
@@ -373,6 +374,8 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                 reg_params[param] = param_dict
             else:
                 raise RuntimeError("derivative_order ={} undefined".format(derivative_order))
+        else:
+            print("param index {} not in reg_params".format(param_index))
 
 
 # need a different function for grads vector

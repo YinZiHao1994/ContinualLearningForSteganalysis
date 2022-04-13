@@ -356,7 +356,7 @@ def calculate_regulation(model, reg_params, use_gpu):
     max_omega_weight = model.max_omega_weight
     parameters = model.tmodel.parameters()
     regulation = 0
-    for p in parameters:
+    for index, p in enumerate(parameters):
         if p in reg_params:
             param_dict = reg_params[p]
 
@@ -392,4 +392,6 @@ def calculate_regulation(model, reg_params, use_gpu):
                 param_diff = curr_param_value_copy - init_val
                 mul = torch.mul(param_diff ** 2, used_omega)
                 regulation += reg_lambda * mul.sum()
+        else:
+            print("param in index {} not in reg_params".format(index))
     return regulation
