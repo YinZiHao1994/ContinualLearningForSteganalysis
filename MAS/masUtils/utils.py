@@ -206,7 +206,8 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
     model.tmodel.eval()
     dataloader_len = len(dataloader)
     for index, sample in enumerate(dataloader):
-
+        if index % 50 == 0:
+            print("OmegaUpdate sample {}/{} in dataloader_train".format(index, dataloader_len))
         # get the inputs and labels
         # inputs, labels = sample
         inputs, labels = sample['data'], sample['label']
@@ -251,19 +252,26 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         if len(param_groups) > 1:
             raise RuntimeError('param_groups length is {}'.format(len(param_groups)))
         params = param_groups[0]['params']
-        grad_params = torch.autograd.grad(outputs=sum_norm, inputs=params, create_graph=True)
+        filter_parms = []
+        for param in params:
+            if param.requires_grad is not None and param.requires_grad:
+                filter_parms.append(param)
+        # filter_parms = filter(lambda p: (p.requires_grad is not None and p.requires_grad), params)
+        grad_params = torch.autograd.grad(outputs=sum_norm, inputs=filter_parms, create_graph=True)
         # torch.autograd.grad does not accumuate the gradients into the .grad attributes
         # It instead returns the gradients as Variable tuples.
-
+        del sum_norm
         # now compute the 2-norm of the grad_params
         grad_norm = 0
         for grad in grad_params:
             grad_norm += grad.pow(2).sum()
         grad_norm = grad_norm.sqrt()
+        del grad_params
 
         # take the gradients wrt grad_norm. backward() will accumulate
         # the gradients into the .grad attributes
         grad_norm.backward()
+        del grad_norm
 
         optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
 

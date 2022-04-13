@@ -379,7 +379,21 @@ def generate_data_loaders(dataset_enum, steganography_enum):
 if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     # individual_learn(SteganographyEnum.HILL, False, SteganographyEnum.HILL)
-    transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
-    ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
-                {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}]
-    transfer_learning(ste_list)
+    # transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
+    # ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+    #             {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}]
+    # transfer_learning(ste_list)
+
+    # 定义函数
+    x = torch.tensor([[-5, -3, -0.5], [-3, -2, 0], [-0.5, 0, -0.5]], requires_grad=True)
+    b = torch.tensor([1., 3, 5])
+    A = torch.tensor([[-5, -3, -0.5], [-3, -2, 0], [-0.5, 0, -0.5]])
+    y = b @ x + 0.5 * x @ A @ x
+
+    # 计算一阶导数,因为我们需要继续计算二阶导数,所以创建并保留计算图
+    grad = torch.autograd.grad(y.sum(), x, retain_graph=True, create_graph=True)
+    # 定义Print数组,为输出和进一步利用Hessian矩阵作准备
+    Print = torch.tensor([])
+    for anygrad in grad[0]:  # torch.autograd.grad返回的是元组
+        Print = torch.cat((Print, torch.autograd.grad(anygrad, x, retain_graph=True)[0]))
+    print(Print.view(x.size()[0], -1))

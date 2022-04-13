@@ -210,9 +210,17 @@ class OmegaUpdate(optim.SGD):
                             bottom = (1 + first_derivative ** 2) ** (3.0 / 2)
                             curvature = new_second_derivative / bottom
                             omega_list = param_dict['omega_list']
-                            omega = first_derivative.abs() * 10 / curvature
-                            print("first_derivative = {} ,new_second_derivative = {} ,curvature = {} ,omega = {}"
-                                  .format(first_derivative, new_second_derivative, curvature, omega))
+                            omega = first_derivative.abs() * torch.log(curvature + 1)
+                            # print("first_derivative = {} ,new_second_derivative = {} ,curvature = {} ,omega = {}"
+                            #       .format(first_derivative, new_second_derivative, curvature, omega))
+                            print("max first_derivative = {} ,min first_derivative = {}"
+                                  .format(first_derivative.max(), first_derivative.min()))
+                            print("max new_second_derivative = {} ,min new_second_derivative = {}"
+                                  .format(new_second_derivative.max(), new_second_derivative.min()))
+                            print("max curvature = {} ,min curvature = {}"
+                                  .format(curvature.max(), curvature.min()))
+                            print("max omega = {} ,min omega = {}"
+                                  .format(omega.max(), omega.min()))
                             omega_list[-1] = omega
                             param_dict['omega_list'] = omega_list
                         reg_params[p] = param_dict
