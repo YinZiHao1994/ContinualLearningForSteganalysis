@@ -242,10 +242,9 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         del squared_l2_norm
 
         # compute gradients for these parameters
-        sum_norm.backward(create_graph=True)
-
+        # sum_norm.backward(create_graph=True)
         # optimizer.step computes the omega values for the new batches of sample
-        optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
+        # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
 
         # 二阶导数的计算
         param_groups = optimizer.param_groups
@@ -257,23 +256,27 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
             if param.requires_grad is not None and param.requires_grad:
                 filter_parms.append(param)
         # filter_parms = filter(lambda p: (p.requires_grad is not None and p.requires_grad), params)
-        grad_params = torch.autograd.grad(outputs=sum_norm, inputs=filter_parms, create_graph=True)
+        one_order_gradients = torch.autograd.grad(outputs=sum_norm, inputs=filter_parms, create_graph=True)
+        deal_with_derivative(model, index, dataloader_len, labels.size(0), filter_parms, one_order_gradients, 1,
+                             use_gpu)
+
         # torch.autograd.grad does not accumuate the gradients into the .grad attributes
         # It instead returns the gradients as Variable tuples.
         del sum_norm
         # now compute the 2-norm of the grad_params
         grad_norm = 0
-        for grad in grad_params:
+        for grad in one_order_gradients:
             grad_norm += grad.pow(2).sum()
         grad_norm = grad_norm.sqrt()
-        del grad_params
+        del one_order_gradients
 
         # take the gradients wrt grad_norm. backward() will accumulate
         # the gradients into the .grad attributes
-        grad_norm.backward()
-        del grad_norm
-
-        optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
+        # grad_norm.backward()
+        # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
+        two_order_gradients = torch.autograd.grad(outputs=grad_norm, inputs=filter_parms)
+        deal_with_derivative(model, index, dataloader_len, labels.size(0), filter_parms, two_order_gradients, 1,
+                             use_gpu)
 
         # param_groups = optimizer.param_groups
         # if len(param_groups) > 1:
@@ -300,6 +303,10 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
 
 def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params, gradients, derivative_order, use_gpu):
     reg_params = model.reg_params
+    params_length = len(params)
+    gradients_length = len(gradients)
+    if not params_length == gradients_length:
+        raise RuntimeError("params_length {} not equal gradients_length {}".format(params_length, gradients_length))
     for param_index, param in enumerate(params):
         if param in reg_params:
             grad = gradients[param_index]
@@ -350,9 +357,17 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                     bottom = (1 + first_derivative ** 2) ** (3.0 / 2)
                     curvature = new_second_derivative / bottom
                     omega_list = param_dict['omega_list']
-                    omega = first_derivative.abs() * 10 / curvature
-                    print("first_derivative = {} ,new_second_derivative = {} ,curvature = {} ,omega = {}"
-                          .format(first_derivative, new_second_derivative, curvature, omega))
+                    omega = first_derivative.abs() * torch.log(curvature + 1)
+                    # print("first_derivative = {} ,new_second_derivative = {} ,curvature = {} ,omega = {}"
+                    #       .format(first_derivative, new_second_derivative, curvature, omega))
+                    print("max first_derivative = {} ,min first_derivative = {}"
+                          .format(first_derivative.max(), first_derivative.min()))
+                    print("max new_second_derivative = {} ,min new_second_derivative = {}"
+                          .format(new_second_derivative.max(), new_second_derivative.min()))
+                    print("max curvature = {} ,min curvature = {}"
+                          .format(curvature.max(), curvature.min()))
+                    print("max omega = {} ,min omega = {}"
+                          .format(omega.max(), omega.min()))
                     omega_list[-1] = omega
                     param_dict['omega_list'] = omega_list
                 reg_params[param] = param_dict
