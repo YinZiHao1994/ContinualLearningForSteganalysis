@@ -159,7 +159,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                 # max_omega = torch.maximum(max_omega, param_omega)
                 # min_omega = torch.minimum(min_omega, param_omega)
             # print("max_omega = {}\nmin_omega = {}".format(max_omega, min_omega))
-            print("compute_omega_grads_norm max_omega = {}\nmin_omega = {}".format(torch_max, torch_min))
+            print("compute_omega_grads_norm max_omega = {} min_omega = {}".format(torch_max, torch_min))
 
             running_loss = 0
             running_corrects = 0.0
@@ -376,22 +376,21 @@ def calculate_regulation(model, reg_params, use_gpu):
                 # if self.flag < 1:
                 #     print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
                 #     print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
-
-            used_omega_weight_sigmoid = torch.sigmoid(model.used_omega_weight)
-            used_omega = used_omega * used_omega_weight_sigmoid + max_omega * (1 - used_omega_weight_sigmoid)
-            if used_omega.any().item():
-                init_val = param_dict['init_val']
-                reg_lambda = param_dict['lambda']
-                # curr_param_value_copy = p.data.clone()
-                curr_param_value_copy = p
-                if use_gpu:
-                    curr_param_value_copy = curr_param_value_copy.cuda()
-                    init_val = init_val.cuda()
-                    used_omega = used_omega.cuda()
-                # get the difference
-                param_diff = curr_param_value_copy - init_val
-                mul = torch.mul(param_diff ** 2, used_omega)
-                regulation += reg_lambda * mul.sum()
+            used_omega = used_omega / omega_list_length
+            # used_omega_weight_sigmoid = torch.sigmoid(model.used_omega_weight)
+            used_omega = used_omega * used_omega_weight + max_omega * max_omega_weight
+            init_val = param_dict['init_val']
+            reg_lambda = param_dict['lambda']
+            # curr_param_value_copy = p.data.clone()
+            curr_param_value_copy = p
+            if use_gpu:
+                curr_param_value_copy = curr_param_value_copy.cuda()
+                init_val = init_val.cuda()
+                used_omega = used_omega.cuda()
+            # get the difference
+            param_diff = curr_param_value_copy - init_val
+            mul = torch.mul(param_diff ** 2, used_omega)
+            regulation += reg_lambda * mul.sum()
         else:
             print("param in index {} not in reg_params".format(index))
     return regulation

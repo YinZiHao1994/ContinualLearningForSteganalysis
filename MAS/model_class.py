@@ -33,6 +33,10 @@ class ClassificationHead(nn.Module):
         return x
 
 
+used_omega_weight = 0.3
+max_omega_weight = 0.7
+
+
 class SharedModel(nn.Module):
 
     def __init__(self, model):
@@ -41,8 +45,8 @@ class SharedModel(nn.Module):
         self.reg_params = {}
         # self.used_omega_weight = torch.tensor([0.3], requires_grad=True, dtype=torch.float64)
         # self.max_omega_weight = torch.tensor([0.3], requires_grad=True, dtype=torch.float64)
-        self.used_omega_weight = torch.tensor(-1.0, requires_grad=False)
-        self.max_omega_weight = torch.tensor(0.7, requires_grad=False)
+        self.used_omega_weight = torch.tensor(used_omega_weight, requires_grad=False)
+        self.max_omega_weight = torch.tensor(max_omega_weight, requires_grad=False)
         # self.weight_params = {'used_omega_weight': used_omega_weight, 'max_omega_weight': max_omega_weight}
         self.lambda_list = init_lambda_list(self)
 

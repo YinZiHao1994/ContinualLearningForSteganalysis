@@ -29,6 +29,7 @@ from MAS import mas
 from MAS.masUtils import utils, model_utils
 from common import DatasetEnum, SteganographyEnum
 import common_utils
+import MAS.model_class as model_class
 
 BATCH_SIZE = 32
 # DECAY_EPOCH = [30, 60, 90, 140, 200, 250, 300, 350]
@@ -182,9 +183,8 @@ def init_console_log():
     log_file_name = log_file_name + '-全连接通用并冻结'
     log_file_name = log_file_name + '-独立控制lambda,prior_lambda-{},later_lambda-{}'.format(prior_lambda, later_lambda)
     log_file_name = log_file_name + '-去除consolidate'
-    log_file_name = log_file_name + '-omega独立_max_omega占0.7权重，正常omega加值占0.3'
-    log_file_name = log_file_name + '-避免矫枉过正算法'
-    # log_file_name = log_file_name + '-优化的避免矫枉过正算法'
+    log_file_name = log_file_name + '-omega独立_max_omega占' + model_class.max_omega_weight + '权重，正常omega加值占' + model_class.used_omega_weight
+    log_file_name = log_file_name + '-曲率算法'
     # log_file_name = log_file_name + '-omega独立_所有omega的最大值占0.5权重'
     log_file_name = log_file_name + '.log'
     log_file = os.path.join(LOG_PATH, 'str_with_lll_' + str(time.time()) + '.log')
