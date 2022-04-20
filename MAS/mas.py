@@ -56,7 +56,7 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
 
     else:
         # initialize the reg_params for this task
-        model = init_reg_params_across_tasks(model, use_gpu)
+        model = init_reg_params_across_tasks(model, task_no, use_gpu)
 
     # if task_no > 1:
     #     model = consolidate_reg_params(model, use_gpu)

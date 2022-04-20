@@ -80,12 +80,13 @@ def init_reg_params(model, use_gpu, lambda_list, freeze_layers=None):
     return model
 
 
-def init_reg_params_across_tasks(model, use_gpu, freeze_layers=None):
+def init_reg_params_across_tasks(model, task_no, use_gpu, freeze_layers=None):
     """
     Input:
-    1) model: A reference to the model that is being trained
-    2) use_gpu: Set the flag to True if the model is to be trained on the GPU
-    3) freeze_layers: A list containing the layers for which omega is not calculated. Useful in the
+    :param model: A reference to the model that is being trained
+    :param task_no:
+    :param use_gpu: Set the flag to True if the model is to be trained on the GPU
+    :param freeze_layers: A list containing the layers for which omega is not calculated. Useful in the
         case of computational limitations where computing the importance parameters for the entire model
         is not feasible
 
@@ -129,7 +130,8 @@ def init_reg_params_across_tasks(model, use_gpu, freeze_layers=None):
                 param_dict['omega'] = prev_omega
 
                 # store the initial values of the parameters
-                param_dict['init_val'] = init_val
+                if task_no == 2:
+                    param_dict['init_val'] = init_val
 
                 omega_list = param_dict['omega_list']
                 omega_list.append(new_omega)

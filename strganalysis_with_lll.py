@@ -176,14 +176,16 @@ def init_console_log():
         dataset_name = ste['dataset'].name
         steganography_name = ste['steganography'].name
         log_file_name = log_file_name + '[' + dataset_name + '-' + steganography_name + ']'
-    log_file_name = log_file_name + ',num_epochs-{},reg_lambda-{}'.format(num_epochs, reg_lambda)
+    log_file_name = log_file_name + ',num_epochs-{}'.format(num_epochs)
     # log_file_name = log_file_name + '-后层冻结'
     log_file_name = log_file_name + '-lr变一次'
     # log_file_name = log_file_name + '-lr不变'
     log_file_name = log_file_name + '-全连接通用并冻结'
     log_file_name = log_file_name + '-独立控制lambda,prior_lambda-{},later_lambda-{}'.format(prior_lambda, later_lambda)
     log_file_name = log_file_name + '-去除consolidate'
-    log_file_name = log_file_name + '-omega独立_max_omega占' + model_class.max_omega_weight + '权重，正常omega加值占' + model_class.used_omega_weight
+    log_file_name = log_file_name + '-omega独立_max_omega占{}权重，正常omega加值占{}'.format(model_class.max_omega_weight,
+                                                                                  model_class.used_omega_weight)
+    log_file_name = log_file_name + '-在第一个任务结束后固定init_val的值'
     log_file_name = log_file_name + '-曲率算法'
     # log_file_name = log_file_name + '-omega独立_所有omega的最大值占0.5权重'
     log_file_name = log_file_name + '.log'
