@@ -33,8 +33,10 @@ class ClassificationHead(nn.Module):
         return x
 
 
-used_omega_weight = 0.3
-max_omega_weight = 0.7
+used_omega_weight = 0.5
+max_omega_weight = 0.5
+prior_lambda = 3
+later_lambda = 7
 
 
 class SharedModel(nn.Module):
@@ -55,8 +57,6 @@ class SharedModel(nn.Module):
 
 
 def init_lambda_list(model):
-    prior_lambda = 2
-    later_lambda = 1
     # 每一层单独设定lambda
     model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
     prior_length = 0

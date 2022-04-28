@@ -130,8 +130,7 @@ def init_reg_params_across_tasks(model, task_no, use_gpu, freeze_layers=None):
                 param_dict['omega'] = prev_omega
 
                 # store the initial values of the parameters
-                if task_no == 2:
-                    param_dict['init_val'] = init_val
+                param_dict['init_val'] = init_val
 
                 omega_list = param_dict['omega_list']
                 omega_list.append(new_omega)
