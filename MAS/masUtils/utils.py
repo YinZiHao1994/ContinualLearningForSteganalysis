@@ -57,10 +57,12 @@ def init_reg_params(model, use_gpu, lambda_list, freeze_layers=None):
             print("Initializing omega values for layer", name)
             omega = torch.zeros(param.size())
             omega = omega.to(device)
-            omega_list = [omega]
+            # omega_list = [omega]
+            omega_list = []
             first_derivative = torch.zeros(param.size())
             first_derivative = first_derivative.to(device)
-            first_derivative_list = [first_derivative]
+            # first_derivative_list = [first_derivative]
+            first_derivative_list = []
             second_derivative = torch.zeros(param.size())
             init_val = param.data.clone()
             if index >= lambda_list_length:
