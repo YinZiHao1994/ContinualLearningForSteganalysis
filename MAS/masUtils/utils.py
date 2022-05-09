@@ -132,15 +132,6 @@ def init_reg_params_across_tasks(model, task_no, use_gpu, freeze_layers=None):
                 # store the initial values of the parameters
                 param_dict['init_val'] = init_val
 
-                omega_list = param_dict['omega_list']
-                omega_list.append(new_omega)
-                param_dict['omega_list'] = omega_list
-
-                first_derivative_list = param_dict['first_derivative_list']
-                new_first_derivative = torch.zeros(param.size())
-                first_derivative_list.append(new_first_derivative)
-                param_dict['first_derivative_list'] = first_derivative_list
-
                 # the key for this dictionary is the name of the layer
                 reg_params[param] = param_dict
 
@@ -334,8 +325,7 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                 param_dict['first_derivative'] = new_first_derivative
                 if batch_index == dataloader_len - 1:
                     first_derivative_list = param_dict['first_derivative_list']
-                    first_derivative_list[-1] = new_first_derivative
-                    param_dict['first_derivative_list'] = first_derivative_list
+                    first_derivative_list.append(new_first_derivative)
 
                 # if batch_index % 10 == 0:
                 # print("in index {} ,param {}'s old first_derivative is {}\nnew first_derivative is {}"
@@ -374,7 +364,7 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                           .format(curvature.max(), curvature.min()))
                     print("max omega = {} ,min omega = {}"
                           .format(omega.max(), omega.min()))
-                    omega_list[-1] = omega
+                    omega_list.append(omega)
                     param_dict['omega_list'] = omega_list
                 reg_params[param] = param_dict
             else:
