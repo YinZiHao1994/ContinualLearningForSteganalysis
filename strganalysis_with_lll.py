@@ -185,7 +185,7 @@ def init_console_log():
     log_file_name = log_file_name + '-omega独立_max_omega占{}权重，正常omega加值占{}'.format(model_class.max_omega_weight,
                                                                                   model_class.used_omega_weight)
     log_file_name = log_file_name + '-在第一个任务结束后固定init_val的值'
-    log_file_name = log_file_name + '-曲率算法'
+    log_file_name = log_file_name + '-改进的曲率算法'
     # log_file_name = log_file_name + '-omega独立_所有omega的最大值占0.5权重'
     log_file_name = log_file_name + '.log'
     log_file = os.path.join(LOG_PATH, 'str_with_lll_' + str(time.time()) + '.log')
