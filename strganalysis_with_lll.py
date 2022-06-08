@@ -196,8 +196,10 @@ def init_console_log():
 if __name__ == '__main__':
     # main([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN], False)
     print("start in {}".format(time.ctime()))
-    ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
-                {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.SUNI},
-                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN}]
+    ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.WOW},
+                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.SUNI},
+                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN},
+                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+                ]
     main(ste_list, False)
     print("end in {}".format(time.ctime()))

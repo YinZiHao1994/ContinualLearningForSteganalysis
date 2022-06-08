@@ -2,9 +2,10 @@ from enum import Enum
 
 
 class SteganographyEnum(Enum):
-    HILL = 1
-    SUNI = 2
-    UTGAN = 3
+    WOW = 1
+    HILL = 2
+    SUNI = 3
+    UTGAN = 4
 
 
 class DatasetEnum(Enum):

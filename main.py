@@ -262,12 +262,12 @@ def transfer_learning(dataset_steganography_list):
     last_dataset_steganography = dataset_steganography_list[-1]
     last_dataset = last_dataset_steganography['dataset']
     last_steganography = last_dataset_steganography['steganography']
+    model = generate_model(device, None, None, True, last_steganography, last_dataset)
     for dataset_steganography in dataset_steganography_list:
         dataset_enum = dataset_steganography['dataset']
         steganography_enum = dataset_steganography['steganography']
         test_loader, train_loader, valid_loader = generate_data_loaders(dataset_enum, steganography_enum)
 
-        model = generate_model(device, None, None, True, last_steganography, last_dataset)
         logging.info(
             'Test transfer learning {}-{}model\'s performance in former steganography {}-{}'.format(last_dataset.name,
                                                                                                     last_steganography.name,
@@ -380,20 +380,9 @@ if __name__ == '__main__':
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     # individual_learn(SteganographyEnum.HILL, False, SteganographyEnum.HILL)
     # transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
-    # ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
-    #             {'dataset': DatasetEnum.BOWS2OrigEp3, 'steganography': SteganographyEnum.HILL}]
-    # transfer_learning(ste_list)
-
-    # 定义函数
-    x = torch.tensor([[-5, -3, -0.5], [-3, -2, 0], [-0.5, 0, -0.5]], requires_grad=True)
-    b = torch.tensor([1., 3, 5])
-    A = torch.tensor([[-5, -3, -0.5], [-3, -2, 0], [-0.5, 0, -0.5]])
-    y = b @ x + 0.5 * x @ A @ x
-
-    # 计算一阶导数,因为我们需要继续计算二阶导数,所以创建并保留计算图
-    grad = torch.autograd.grad(y.sum(), x, retain_graph=True, create_graph=True)
-    # 定义Print数组,为输出和进一步利用Hessian矩阵作准备
-    Print = torch.tensor([])
-    for anygrad in grad[0]:  # torch.autograd.grad返回的是元组
-        Print = torch.cat((Print, torch.autograd.grad(anygrad, x, retain_graph=True)[0]))
-    print(Print.view(x.size()[0], -1))
+    ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.WOW},
+                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.SUNI},
+                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN},
+                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+                ]
+    transfer_learning(ste_list)
