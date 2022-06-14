@@ -142,7 +142,7 @@ def main(dataset_steganography_list, reuse_model):
         print("Training the model on task {}, λ = {}, lr = {}".format(task_num, reg_lambda, actual_lr))
 
         mas.mas_train(model, task_num, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
-                      actual_lr, reg_lambda=reg_lambda, use_gpu=use_gpu)
+                      actual_lr, reg_lambda=reg_lambda, use_awl=False, use_gpu=use_gpu)
 
     print("The training process on the {} tasks is completed".format(tasks_length))
 
@@ -150,22 +150,23 @@ def main(dataset_steganography_list, reuse_model):
     # 释放显存
     if hasattr(torch.cuda, 'empty_cache'):
         torch.cuda.empty_cache()
-    # test the model out on the test sets of the tasks
-    for task_num in range(1, tasks_length + 1):
-        print("Testing the model on task {}".format(task_num))
+    with torch.no_grad():
+        # test the model out on the test sets of the tasks
+        for task_num in range(1, tasks_length + 1):
+            print("Testing the model on task {}".format(task_num))
 
-        dataloader_test = test_dset_loaders[task_num - 1]
-        # no_of_classes = dataloader_test.dataset.classes
-        no_of_classes = 2
+            dataloader_test = test_dset_loaders[task_num - 1]
+            # no_of_classes = dataloader_test.dataset.classes
+            no_of_classes = 2
 
-        # load the model for inference
-        model = model_utils.model_inference(task_num, tasks_length, use_gpu)
-        model.to(device)
-        print("model: ", model)
+            # load the model for inference
+            model = model_utils.model_inference(task_num, tasks_length, use_gpu)
+            model.to(device)
+            # print("model: ", model)
 
-        forgetting = mas.compute_forgetting(model, task_num, dataloader_test, use_gpu)
+            forgetting = mas.compute_forgetting(model, task_num, dataloader_test, use_gpu)
 
-        print("The forgetting on task {} is {:.4f}".format(task_num, forgetting))
+            print("The forgetting on task {} is {:.4f}".format(task_num, forgetting))
 
 
 def init_console_log():

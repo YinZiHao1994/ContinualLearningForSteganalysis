@@ -30,24 +30,23 @@ import dataAnalyze
 
 
 def train_model(model, task_no, num_classes, model_criterion, dataloader_train, dataloader_test, num_epochs,
-                use_gpu=False, lr=0.001, reg_lambda=0.01):
+                use_gpu=False, lr=0.001, reg_lambda=0.01, use_awl=False):
     """
-    Inputs:
-    1) model: A reference to the model that is being exposed to the sample for the task
-    2) optimizer: A local_sgd optimizer object that implements the idea of MaS
-    3) model_criterion: The loss function used to train the model
-    4) dataloader_train: A dataloader to feed the training sample to the model
-    5) dataloader_test: A dataloader to feed the test sample to the model
-    6) dset_size_train: Size of the dataset that belongs to a specific task
-    7) dset_size_test: Size of the test dataset that belongs to a specific task
-    8) num_epochs: Number of epochs that you wish to train the model for
-    9) use_gpu: Set the flag to `True` if you wish to train on a GPU. Default value: False
-    10) lr: The initial learning rate set for training the model
-
     Outputs:
     1) model: Return a trained model
 
     Function: Trains the model on a specific task identified by a task number and saves this model
+    :param model: A reference to the model that is being exposed to the sample for the task
+    :param optimizer: A local_sgd optimizer object that implements the idea of MaS
+    :param model_criterion: The loss function used to train the model
+    :param dataloader_train: A dataloader to feed the training sample to the model
+    :param dataloader_test: A dataloader to feed the test sample to the model
+    :param dset_size_train: Size of the dataset that belongs to a specific task
+    :param dset_size_test: Size of the test dataset that belongs to a specific task
+    :param num_epochs: Number of epochs that you wish to train the model for
+    :param use_gpu: Set the flag to `True` if you wish to train on a GPU. Default value: False
+    :param lr: The initial learning rate set for training the model
+    :param use_awl:
 
     """
     omega_epochs = num_epochs + 1
@@ -114,16 +113,22 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     #     # {'params': model.weight_params.values()}],
     #     {'params': [model.used_omega_weight, model.max_omega_weight]}],
     #     lr, momentum=0.9, weight_decay=0.0005)
-
     automatic_weighted_loss = AutomaticWeightedLoss(2)
-    optimizer = optim.SGD([
-        {'params': filter_parms},
-        # {'params': model.lambda_list},
-        # {'params': [model.used_omega_weight, model.max_omega_weight]},
-        {'params': automatic_weighted_loss.parameters()}
-    ],
-        lr, momentum=0.9, weight_decay=0.0005)
-
+    momentum = 0.9
+    weight_decay = 0.0005
+    if use_awl:
+        optimizer = optim.SGD([
+            {'params': filter_parms},
+            # {'params': model.lambda_list},
+            # {'params': [model.used_omega_weight, model.max_omega_weight]},
+            {'params': automatic_weighted_loss.parameters()}
+        ],
+            lr, momentum=momentum, weight_decay=weight_decay)
+    else:
+        optimizer = optim.SGD([
+            {'params': filter_parms}
+        ],
+            lr, momentum=momentum, weight_decay=weight_decay)
     step_size = 15
     scheduler_gama = 0.50
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
@@ -165,47 +170,47 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
             running_corrects = 0.0
 
             model.tmodel.eval()
+            with torch.no_grad():
+                for index, sample in enumerate(dataloader_test):
+                    if index % 50 == 0:
+                        print("sample {}/{} in dataloader_test".format(index, len(dataloader_test)))
+                    datas, labels = sample['data'], sample['label']
+                    shape = list(datas.size())
+                    datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+                    labels = labels.reshape(-1)
+                    # shuffle
+                    idx = torch.randperm(shape[0])
+                    data = datas[idx]
+                    label = labels[idx]
 
-            for index, sample in enumerate(dataloader_test):
-                if index % 50 == 0:
-                    print("sample {}/{} in dataloader_test".format(index, len(dataloader_test)))
-                datas, labels = sample['data'], sample['label']
-                shape = list(datas.size())
-                datas = datas.reshape(shape[0] * shape[1], *shape[2:])
-                labels = labels.reshape(-1)
-                # shuffle
-                idx = torch.randperm(shape[0])
-                data = datas[idx]
-                label = labels[idx]
+                    del sample
 
-                del sample
+                    if use_gpu:
+                        data = data.to(device)
+                        label = label.to(device)
 
-                if use_gpu:
-                    data = data.to(device)
-                    label = label.to(device)
+                    else:
+                        data = Variable(data)
+                        label = Variable(label)
 
-                else:
-                    data = Variable(data)
-                    label = Variable(label)
+                    # optimizer.zero_grad()
 
-                # optimizer.zero_grad()
+                    output = model.tmodel(data)
+                    del data
+                    loss = model_criterion(output, label)
+                    # running_corrects += torch.sum(preds == labels.data)
+                    prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
 
-                output = model.tmodel(data)
-                del data
-                loss = model_criterion(output, label)
-                # running_corrects += torch.sum(preds == labels.data)
-                prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
-
-                corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
-                running_corrects += corrects
-                del labels
-                data_num = label.size(0)
-                total += data_num
-                if index % 10 == 0:
-                    iteration_number[phase] += 10
-                    counter[phase].append(iteration_number[phase])
-                    loss_history[phase].append(loss.item())
-                    acc_history[phase].append(corrects / data_num)
+                    corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+                    running_corrects += corrects
+                    del labels
+                    data_num = label.size(0)
+                    total += data_num
+                    if index % 10 == 0:
+                        iteration_number[phase] += 10
+                        counter[phase].append(iteration_number[phase])
+                        loss_history[phase].append(loss.item())
+                        acc_history[phase].append(corrects / data_num)
             diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
             dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
                                        "loss_" + phase + "_" + str(epoch))
@@ -277,13 +282,17 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                     loss = origin_loss
                 else:
                     regulation = calculate_regulation(model, reg_params, use_gpu)
-                    loss = automatic_weighted_loss(origin_loss, regulation)
+                    if use_awl:
+                        loss = automatic_weighted_loss(origin_loss, regulation)
+                    else:
+                        loss = origin_loss + regulation
                     if index % 100 == 0:
                         print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
                         # for i, lam in enumerate(model.lambda_list):
                         #     print("lambda in position {} is {}".format(i, lam))
-                        for b, batch in enumerate(automatic_weighted_loss.parameters()):
-                            print("automatic_weighted_loss {} is {}".format(b, batch))
+                        if use_awl:
+                            for b, batch in enumerate(automatic_weighted_loss.parameters()):
+                                print("automatic_weighted_loss {} is {}".format(b, batch))
 
                 loss.backward()
                 # print (model.reg_params)

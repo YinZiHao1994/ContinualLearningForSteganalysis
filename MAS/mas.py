@@ -29,23 +29,22 @@ from MAS.model_train import *
 
 
 def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test, lr=0.001,
-              reg_lambda=0.01, use_gpu=False):
+              reg_lambda=0.01, use_awl=False, use_gpu=False):
     """
-    Inputs:
-    1) model: A reference to the model that is being exposed to the data for the task
-    2) task_no: The task that is being exposed to the model identified by it's number
-    3) num_freeze_layers: The number of layers that you want to freeze in the feature extractor of the Alexnet
-    4) no_of_classes: The number of classes in the task
-    5) dataloader_train: Dataloader that feeds training data to the model
-    6) dataloader_test: Dataloader that feeds test data to the model
-    6) dset_size_train: The size of the task (size of the dataset belonging to the training task)
-    7) dset_size_test: The size of the task (size of the dataset belonging to the test set)
-    7) use_gpu: Set the flag to `True` if you want to train the model on GPU
-
     Outputs:
     1) model: Returns a trained model
 
     Function: Trains the model on a particular task and deals with different tasks in the sequence
+    :param model: A reference to the model that is being exposed to the data for the task
+    :param task_no: The task that is being exposed to the model identified by it's number
+    :param num_freeze_layers: The number of layers that you want to freeze in the feature extractor of the Alexnet
+    :param no_of_classes: The number of classes in the task
+    :param dataloader_train: Dataloader that feeds training data to the model
+    :param dataloader_test: Dataloader that feeds test data to the model
+    :param dset_size_train: The size of the task (size of the dataset belonging to the training task)
+    :param dset_size_test: The size of the task (size of the dataset belonging to the test set)
+    :param use_gpu: Set the flag to `True` if you want to train the model on GPU
+    :param use_awl:
     """
 
     # this is the task to which the model is exposed
@@ -71,7 +70,7 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
     #            model.tmodel.parameters()), lr, momentum=momentum, weight_decay=0.0005)
 
     train_model(model, task_no, no_of_classes, model_criterion, dataloader_train, dataloader_test, num_epochs, use_gpu,
-                lr, reg_lambda)
+                lr, reg_lambda, use_awl)
 
     return model
 

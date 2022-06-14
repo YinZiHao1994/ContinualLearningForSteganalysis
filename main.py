@@ -285,6 +285,8 @@ def init_console_log():
     log_file_name = log_file_name + ',num_epochs-{}'.format(EPOCHS)
     log_file_name = log_file_name + '.log'
     log_file = os.path.join(LOG_PATH, log_file_name)
+    if not os.path.exists(LOG_PATH):
+        os.makedirs(LOG_PATH)
     common_utils.Logger(log_file)
 
 
