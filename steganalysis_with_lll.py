@@ -137,7 +137,8 @@ def main(dataset_steganography_list, reuse_model):
 
         model = model_utils.model_init(task_num, no_of_classes, use_gpu, reuse_model)
         # 从第二个任务开始，初始的lr每次缩小10倍
-        actual_lr = lr * pow(0.1, task_num - 1)
+        # actual_lr = lr * pow(0.1, task_num - 1)
+        actual_lr = lr
 
         print("Training the model on task {}, λ = {}, lr = {}".format(task_num, reg_lambda, actual_lr))
 

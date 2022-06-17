@@ -106,31 +106,29 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
 
     since_time = time.time()
 
-    filter_parms = filter(lambda p: (p.requires_grad is not None and p.requires_grad) or p.requires_grad is None,
-                          model.tmodel.parameters())
-    # optimizer = optim.SGD([
-    #     {'params': filter_parms},
-    #     # {'params': model.weight_params.values()}],
-    #     {'params': [model.used_omega_weight, model.max_omega_weight]}],
-    #     lr, momentum=0.9, weight_decay=0.0005)
     automatic_weighted_loss = AutomaticWeightedLoss(2)
     momentum = 0.9
     weight_decay = 0.0005
+
+    params = model.parameters()
+    filter_parms = filter(lambda p: (p.requires_grad is not None and p.requires_grad) or p.requires_grad is None,
+                          model.tmodel.parameters())
+    params_wd, params_rest = [], []
+    for param_item in params:
+        if param_item.requires_grad:
+            (params_wd if param_item.dim() != 1 else params_rest).append(param_item)
+
     if use_awl:
-        optimizer = optim.SGD([
-            {'params': filter_parms},
-            # {'params': model.lambda_list},
-            # {'params': [model.used_omega_weight, model.max_omega_weight]},
-            {'params': automatic_weighted_loss.parameters()}
-        ],
-            lr, momentum=momentum, weight_decay=weight_decay)
+        param_groups = [{'params': params_wd, 'weight_decay': weight_decay},
+                        {'params': params_rest}, {'params': automatic_weighted_loss.parameters()}]
     else:
-        optimizer = optim.SGD([
-            {'params': filter_parms}
-        ],
-            lr, momentum=momentum, weight_decay=weight_decay)
+        param_groups = [{'params': params_wd, 'weight_decay': weight_decay},
+                        {'params': params_rest}]
+
+    optimizer = optim.SGD(param_groups, lr=lr, momentum=momentum, weight_decay=0.0005)
+
     step_size = 15
-    scheduler_gama = 0.50
+    scheduler_gama = 0.40
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
 
     for epoch in range(start_epoch, omega_epochs):
