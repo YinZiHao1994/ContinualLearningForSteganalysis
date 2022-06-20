@@ -383,8 +383,8 @@ if __name__ == '__main__':
     # individual_learn(SteganographyEnum.HILL, False, SteganographyEnum.HILL)
     # transfer_learning([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN])
     ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.WOW},
-                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.SUNI},
+                {'dataset': DatasetEnum.BOWS2_256, 'steganography': SteganographyEnum.SUNI},
                 {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN},
-                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+                {'dataset': DatasetEnum.BOWS2_256, 'steganography': SteganographyEnum.HILL},
                 ]
     transfer_learning(ste_list)

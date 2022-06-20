@@ -154,22 +154,22 @@ def model_inference(task_no, task_length, use_gpu=False):
     model = torch.load(complete_model_path)
 
     # 针对 SRNet 的情况
-    classifier = model.tmodel.fc
-    in_features = classifier.in_features
-
-    # load the classifier head for the given task identified by the task number
-    classification_head = ClassificationHead(in_features, num_classes)
-    classification_head.load_state_dict(torch.load(os.path.join(path_to_head, "head.pth")))
-
-    # load the trained shared model
-    # model.load_state_dict(torch.load(os.path.join(path_to_model, "shared_model.pth"), map_location=device))
-
-    # model.tmodel.classifier.add_module('6', nn.Linear(in_features, num_classes))
-    model.tmodel.fc = nn.Linear(in_features, num_classes)
-
-    # change the weights layers to the classifier head weights
-    model.tmodel.fc.weight.data = classification_head.fc.weight.data
-    model.tmodel.fc.bias.data = classification_head.fc.bias.data
+    # classifier = model.tmodel.fc
+    # in_features = classifier.in_features
+    #
+    # # load the classifier head for the given task identified by the task number
+    # classification_head = ClassificationHead(in_features, num_classes)
+    # classification_head.load_state_dict(torch.load(os.path.join(path_to_head, "head.pth")))
+    #
+    # # load the trained shared model
+    # # model.load_state_dict(torch.load(os.path.join(path_to_model, "shared_model.pth"), map_location=device))
+    #
+    # # model.tmodel.classifier.add_module('6', nn.Linear(in_features, num_classes))
+    # model.tmodel.fc = nn.Linear(in_features, num_classes)
+    #
+    # # change the weights layers to the classifier head weights
+    # model.tmodel.fc.weight.data = classification_head.fc.weight.data
+    # model.tmodel.fc.bias.data = classification_head.fc.bias.data
 
     # device = torch.device("cuda:0" if use_gpu else "cpu")
     model.eval()
@@ -261,9 +261,9 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
     # model.tmodel.fc = nn.Linear(in_features, no_classes)
 
     # 从第二个任务开始，冻结最后的全连接层
-    if task_num > 1:
-        for par in model.tmodel.fc.parameters():
-            par.requires_grad = False
+    # if task_num > 1:
+    #     for par in model.tmodel.fc.parameters():
+    #         par.requires_grad = False
     device = torch.device("cuda:0" if use_gpu else "cpu")
     model.train(True)
     model.to(device)
@@ -310,7 +310,7 @@ def save_model(model, task_no, epoch_accuracy):
     f.close()
 
     # save tge model
-    del classifier
+    # del classifier
 
     # save the model at the specified location
     # torch.save(model.state_dict(), os.path.join(path_to_model, "shared_model.pth"))

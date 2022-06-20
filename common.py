@@ -10,4 +10,4 @@ class SteganographyEnum(Enum):
 
 class DatasetEnum(Enum):
     BOSSBase_256 = r'D:\Work\dataset\steganalysis\BOSSBase'
-    BOWS2OrigEp3 = r'D:\Work\dataset\steganalysis\BOWS2'
+    BOWS2_256 = r'D:\Work\dataset\steganalysis\BOWS2'

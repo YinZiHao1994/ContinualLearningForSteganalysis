@@ -178,9 +178,9 @@ def init_console_log():
         log_file_name = log_file_name + '[' + dataset_name + '-' + steganography_name + ']'
     log_file_name = log_file_name + ',num_epochs-{}'.format(num_epochs)
     # log_file_name = log_file_name + '-后层冻结'
-    log_file_name = log_file_name + '-lr变一次'
-    # log_file_name = log_file_name + '-lr不变'
-    log_file_name = log_file_name + '-全连接通用并冻结'
+    # log_file_name = log_file_name + '-lr变一次'
+    log_file_name = log_file_name + '-lr不变'
+    # log_file_name = log_file_name + '-全连接通用并冻结'
     log_file_name = log_file_name + '-独立控制lambda,prior_lambda-{},later_lambda-{}'.format(model_class.prior_lambda,
                                                                                          model_class.later_lambda)
     log_file_name = log_file_name + '-去除consolidate'
@@ -199,9 +199,9 @@ if __name__ == '__main__':
     # main([SteganographyEnum.HILL, SteganographyEnum.SUNI, SteganographyEnum.UTGAN], False)
     print("start in {}".format(time.ctime()))
     ste_list = [{'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.WOW},
-                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.SUNI},
+                {'dataset': DatasetEnum.BOWS2_256, 'steganography': SteganographyEnum.SUNI},
                 {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.UTGAN},
-                {'dataset': DatasetEnum.BOSSBase_256, 'steganography': SteganographyEnum.HILL},
+                {'dataset': DatasetEnum.BOWS2_256, 'steganography': SteganographyEnum.HILL},
                 ]
     main(ste_list, False)
     print("end in {}".format(time.ctime()))
