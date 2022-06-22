@@ -131,6 +131,7 @@ def main(dataset_steganography_list, reuse_model):
     for task_num in range(1, tasks_length + 1):
         dataloader_train = train_dset_loaders[task_num - 1]
         dataloader_valid = valid_dset_loaders[task_num - 1]
+        dataloader_test = test_dset_loaders[task_num - 1]
 
         # no_of_classes = dataloader_train.dataset.classes
         no_of_classes = 2
@@ -144,6 +145,7 @@ def main(dataset_steganography_list, reuse_model):
 
         mas.mas_train(model, task_num, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
                       actual_lr, reg_lambda=reg_lambda, use_awl=False, use_gpu=use_gpu)
+        test_model_performance(task_num, model, dataloader_test)
 
     print("The training process on the {} tasks is completed".format(tasks_length))
 
@@ -168,6 +170,46 @@ def main(dataset_steganography_list, reuse_model):
             forgetting = mas.compute_forgetting(model, task_num, dataloader_test, use_gpu)
 
             print("The forgetting on task {} is {:.4f}".format(task_num, forgetting))
+
+
+def test_model_performance(task_num, model, dataloader_test):
+    device = torch.device("cuda" if use_gpu else "cpu")
+
+    running_corrects = 0.0
+    total = 0
+    for index, sample in enumerate(dataloader_test):
+        if index % 50 == 0:
+            print("sample {}/{} in dataloader".format(index, len(dataloader_test)))
+        datas, labels = sample['data'], sample['label']
+        shape = list(datas.size())
+        datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+        labels = labels.reshape(-1)
+        # shuffle
+        idx = torch.randperm(shape[0])
+        data = datas[idx]
+        label = labels[idx]
+        del sample
+
+        if use_gpu:
+            data = data.to(device)
+            label = label.to(device)
+
+        else:
+            data = Variable(data)
+            label = Variable(label)
+
+        output = model.tmodel(data)
+        del data
+
+        # running_corrects += torch.sum(preds == labels.data)
+        prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
+
+        running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+        del labels
+        total += label.size(0)
+    dset_size = len(dataloader_test.dataset)
+    epoch_accuracy = running_corrects / total
+    model_utils.save_performance(epoch_accuracy, task_num)
 
 
 def init_console_log():

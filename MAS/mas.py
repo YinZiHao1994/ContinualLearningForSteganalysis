@@ -28,7 +28,7 @@ from MAS.optimizer_lib import *
 from MAS.model_train import *
 
 
-def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_test, lr=0.001,
+def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr=0.001,
               reg_lambda=0.01, use_awl=False, use_gpu=False):
     """
     Outputs:
@@ -40,7 +40,7 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
     :param num_freeze_layers: The number of layers that you want to freeze in the feature extractor of the Alexnet
     :param no_of_classes: The number of classes in the task
     :param dataloader_train: Dataloader that feeds training data to the model
-    :param dataloader_test: Dataloader that feeds test data to the model
+    :param dataloader_valid: Dataloader that feeds test data to the model
     :param dset_size_train: The size of the task (size of the dataset belonging to the training task)
     :param dset_size_test: The size of the task (size of the dataset belonging to the test set)
     :param use_gpu: Set the flag to `True` if you want to train the model on GPU
@@ -69,7 +69,7 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
     #     filter(lambda p: (p.requires_grad is not None and p.requires_grad) or p.requires_grad is None,
     #            model.tmodel.parameters()), lr, momentum=momentum, weight_decay=0.0005)
 
-    train_model(model, task_no, no_of_classes, model_criterion, dataloader_train, dataloader_test, num_epochs, use_gpu,
+    train_model(model, task_no, no_of_classes, model_criterion, dataloader_train, dataloader_valid, num_epochs, use_gpu,
                 lr, reg_lambda, use_awl)
 
     return model

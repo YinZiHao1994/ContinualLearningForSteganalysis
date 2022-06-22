@@ -24,6 +24,7 @@ from SRNet import SRNet
 
 # sys.path.append('../')
 MODEL_EXPORT_PATH = 'data/model_export'
+PATH_TO_MODEL = os.path.join(os.getcwd(), "models")
 
 
 def exp_lr_scheduler(optimizer, epoch, init_lr=0.0008, lr_decay_epoch=20):
@@ -271,7 +272,7 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
     return model
 
 
-def save_model(model, task_no, epoch_accuracy):
+def save_model(model, task_no):
     """
     Inputs
     1) model: A reference to the model that needs to be saved
@@ -284,8 +285,6 @@ def save_model(model, task_no, epoch_accuracy):
     """
 
     # create the variables
-    path_to_model = os.path.join(os.getcwd(), "models")
-    path_to_head = os.path.join(path_to_model, "Task_" + str(task_no))
 
     # get the features of the classification head
     # in_features = model.tmodel.classifier[-1].in_features
@@ -314,15 +313,18 @@ def save_model(model, task_no, epoch_accuracy):
 
     # save the model at the specified location
     # torch.save(model.state_dict(), os.path.join(path_to_model, "shared_model.pth"))
-    torch.save(model, os.path.join(path_to_model, 'model_in_task_{}'.format(task_no) + '.pth.tar'))
+    torch.save(model, os.path.join(PATH_TO_MODEL, 'model_in_task_{}'.format(task_no) + '.pth.tar'))
     # save the classification head at the task directory
+    path_to_head = os.path.join(PATH_TO_MODEL, "Task_" + str(task_no))
     torch.save(ref.state_dict(), os.path.join(path_to_head, "head.pth"))
+    del ref
 
+
+def save_performance(epoch_accuracy, task_no):
+    path_to_head = os.path.join(PATH_TO_MODEL, "Task_" + str(task_no))
     # save the performance of the model on the task to later determine the forgetting metric
-    with open(os.path.join(path_to_head, "performance.txt"), 'w') as file1:
+    with open(os.path.join(path_to_head, "performance.txt"), 'w') as file:
         # input_to_txtfile = str(epoch_accuracy.item())
         input_to_txtfile = str(epoch_accuracy.item() if torch.is_tensor(epoch_accuracy) else epoch_accuracy)
-        file1.write(input_to_txtfile)
-        file1.close()
-
-    del ref
+        file.write(input_to_txtfile)
+        file.close()

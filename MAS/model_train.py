@@ -29,7 +29,7 @@ from MAS.optimizer_lib import *
 import dataAnalyze
 
 
-def train_model(model, task_no, num_classes, model_criterion, dataloader_train, dataloader_test, num_epochs,
+def train_model(model, task_no, num_classes, model_criterion, dataloader_train, dataloader_valid, num_epochs,
                 use_gpu=False, lr=0.001, reg_lambda=0.01, use_awl=False):
     """
     Outputs:
@@ -40,7 +40,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     :param optimizer: A local_sgd optimizer object that implements the idea of MaS
     :param model_criterion: The loss function used to train the model
     :param dataloader_train: A dataloader to feed the training sample to the model
-    :param dataloader_test: A dataloader to feed the test sample to the model
+    :param dataloader_valid: A dataloader to feed the test sample to the model
     :param dset_size_train: Size of the dataset that belongs to a specific task
     :param dset_size_test: Size of the test dataset that belongs to a specific task
     :param num_epochs: Number of epochs that you wish to train the model for
@@ -135,10 +135,8 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     for epoch in range(start_epoch, omega_epochs):
 
         reg_params = model.reg_params
-        # run the omega accumulation at convergence of the loss function
         if epoch == omega_epochs - 1:
-            phase = 'val'
-            total = 0
+            # run the omega accumulation at convergence of the loss function
             # no training of the model takes place in this epoch
             optimizer_ft = OmegaUpdate(model.reg_params)
             print("Updating the omega values for this task")
@@ -164,74 +162,16 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                 # min_omega = torch.minimum(min_omega, param_omega)
             # print("max_omega = {}\nmin_omega = {}".format(max_omega, min_omega))
             print("compute_omega_grads_norm max_omega = {} min_omega = {}".format(torch_max, torch_min))
-
-            running_loss = 0
-            running_corrects = 0.0
-
-            model.tmodel.eval()
-            with torch.no_grad():
-                for index, sample in enumerate(dataloader_test):
-                    if index % 100 == 0:
-                        print("sample {}/{} in dataloader_test".format(index, len(dataloader_test)))
-                    datas, labels = sample['data'], sample['label']
-                    shape = list(datas.size())
-                    datas = datas.reshape(shape[0] * shape[1], *shape[2:])
-                    labels = labels.reshape(-1)
-                    # shuffle
-                    idx = torch.randperm(shape[0])
-                    data = datas[idx]
-                    label = labels[idx]
-
-                    del sample
-
-                    if use_gpu:
-                        data = data.to(device)
-                        label = label.to(device)
-
-                    else:
-                        data = Variable(data)
-                        label = Variable(label)
-
-                    # optimizer.zero_grad()
-
-                    output = model.tmodel(data)
-                    del data
-                    loss = model_criterion(output, label)
-                    # running_corrects += torch.sum(preds == labels.data)
-                    prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
-
-                    corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
-                    running_corrects += corrects
-                    del labels
-                    data_num = label.size(0)
-                    total += data_num
-                    if index % 10 == 0:
-                        iteration_number[phase] += 10
-                        counter[phase].append(iteration_number[phase])
-                        loss_history[phase].append(loss.item())
-                        acc_history[phase].append(corrects / data_num)
-            diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
-            dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
-                                       "loss_" + phase + "_" + str(epoch))
-            dataAnalyze.save_accurate_plot(diagram_save_path, counter[phase], acc_history[phase],
-                                           "acc_" + phase + "_" + str(epoch))
-            dataset_size = len(dataloader_test.dataset)
-            epoch_accuracy = running_corrects / total
-            print("valuate epoch_accuracy is {}".format(epoch_accuracy))
         else:
             phase = 'train'
 
             total = 0
-
             best_perform = 10e6
-
             # print("Epoch {}/{}".format(epoch, num_epochs))
             print("-" * 20)
             # print ("The training phase is ongoing")
-
             running_loss = 0
             running_corrects = 0.0
-
             # scales the optimizer every 20 epochs
             # scheduler = exp_lr_scheduler(optimizer, epoch, lr, 40)
 
@@ -351,11 +291,67 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
 
                 }, epoch_file_name)
 
+            if (epoch != 0 and (epoch % (num_epochs / 5)) == 0) or epoch == (num_epochs - 1):
+                # evaluate performance specified number
+                phase = 'val'
+                total = 0
+                running_loss = 0
+                running_corrects = 0.0
+
+                model.tmodel.eval()
+                with torch.no_grad():
+                    for index, sample in enumerate(dataloader_valid):
+                        if index % 100 == 0:
+                            print("sample {}/{} in dataloader_test".format(index, len(dataloader_valid)))
+                        datas, labels = sample['data'], sample['label']
+                        shape = list(datas.size())
+                        datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+                        labels = labels.reshape(-1)
+                        # shuffle
+                        idx = torch.randperm(shape[0])
+                        data = datas[idx]
+                        label = labels[idx]
+
+                        del sample
+                        if use_gpu:
+                            data = data.to(device)
+                            label = label.to(device)
+                        else:
+                            data = Variable(data)
+                            label = Variable(label)
+
+                        # optimizer.zero_grad()
+
+                        output = model.tmodel(data)
+                        del data
+                        loss = model_criterion(output, label)
+                        # running_corrects += torch.sum(preds == labels.data)
+                        prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
+
+                        corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+                        running_corrects += corrects
+                        del labels
+                        data_num = label.size(0)
+                        total += data_num
+                        if index % 10 == 0:
+                            iteration_number[phase] += 10
+                            counter[phase].append(iteration_number[phase])
+                            loss_history[phase].append(loss.item())
+                            acc_history[phase].append(corrects / data_num)
+                diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
+                dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
+                                           "loss_" + phase + "_" + str(epoch))
+                dataAnalyze.save_accurate_plot(diagram_save_path, counter[phase], acc_history[phase],
+                                               "acc_" + phase + "_" + str(epoch))
+                dataset_size = len(dataloader_valid.dataset)
+                epoch_accuracy = running_corrects / total
+                print("valuate in epoch {} accuracy is {}".format(epoch, epoch_accuracy))
+
     time_elapsed = time.time() - since_time
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
     # save the model and the performance
-    save_model(model, task_no, epoch_accuracy)
+    save_model(model, task_no)
 
 
 def calculate_regulation(model, reg_params, use_gpu):
