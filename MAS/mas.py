@@ -26,6 +26,7 @@ from MAS.masUtils.model_utils import *
 
 from MAS.optimizer_lib import *
 from MAS.model_train import *
+from MAS.masUtils import utils, model_utils
 
 
 def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr=0.001,
@@ -73,6 +74,46 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
                 lr, reg_lambda, use_awl)
 
     return model
+
+
+def test_model_performance(task_num, model, dataloader_test):
+    device = torch.device("cuda" if use_gpu else "cpu")
+
+    running_corrects = 0.0
+    total = 0
+    for index, sample in enumerate(dataloader_test):
+        if index % 50 == 0:
+            print("sample {}/{} in dataloader".format(index, len(dataloader_test)))
+        datas, labels = sample['data'], sample['label']
+        shape = list(datas.size())
+        datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+        labels = labels.reshape(-1)
+        # shuffle
+        idx = torch.randperm(shape[0])
+        data = datas[idx]
+        label = labels[idx]
+        del sample
+
+        if use_gpu:
+            data = data.to(device)
+            label = label.to(device)
+
+        else:
+            data = Variable(data)
+            label = Variable(label)
+
+        output = model.tmodel(data)
+        del data
+
+        # running_corrects += torch.sum(preds == labels.data)
+        prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
+
+        running_corrects += np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+        del labels
+        total += label.size(0)
+    dset_size = len(dataloader_test.dataset)
+    epoch_accuracy = running_corrects / total
+    model_utils.save_performance(epoch_accuracy, task_num)
 
 
 def compute_forgetting(model, task_no, dataloader, use_gpu):
