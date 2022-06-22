@@ -50,13 +50,13 @@ class SharedModel(nn.Module):
         self.used_omega_weight = torch.tensor(used_omega_weight, requires_grad=False)
         self.max_omega_weight = torch.tensor(max_omega_weight, requires_grad=False)
         # self.weight_params = {'used_omega_weight': used_omega_weight, 'max_omega_weight': max_omega_weight}
-        self.lambda_list = init_lambda_list(self)
+        self.lambda_list = create_lambda_list(self)
 
     def forward(self, x):
         return self.tmodel(x)
 
 
-def init_lambda_list(model):
+def create_lambda_list(model):
     # 每一层单独设定lambda
     model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
     prior_length = 0

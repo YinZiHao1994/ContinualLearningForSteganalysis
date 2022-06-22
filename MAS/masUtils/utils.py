@@ -108,15 +108,19 @@ def init_reg_params_across_tasks(model, task_no, use_gpu, freeze_layers=None):
     device = torch.device("cuda:0" if use_gpu else "cpu")
 
     reg_params = model.reg_params
+    lambda_list = model.lambda_list
+    lambda_list_length = len(lambda_list)
 
-    for name, param in model.tmodel.named_parameters():
+    for index, (name, param) in enumerate(model.tmodel.named_parameters()):
 
         if name not in freeze_layers:
 
             if param in reg_params:
                 param_dict = reg_params[param]
                 print("Initializing the omega values for layer for the new task", name)
-
+                if index >= lambda_list_length:
+                    raise RuntimeError("index {} out of lambda_list_length {}".format(index, lambda_list_length))
+                param_dict['lambda'] = lambda_list[index]
                 # Store the previous values of omega
                 prev_omega = param_dict['omega']
                 first_derivative = param_dict['first_derivative']
@@ -139,6 +143,22 @@ def init_reg_params_across_tasks(model, task_no, use_gpu, freeze_layers=None):
 
     model.reg_params = reg_params
 
+    return model
+
+
+def change_reg_params(model, lambda_list):
+    model.lambda_list = lambda_list
+    reg_params = model.reg_params
+    lambda_list_length = len(lambda_list)
+    for index, (name, param) in enumerate(model.tmodel.named_parameters()):
+        if param in reg_params:
+            param_dict = reg_params[param]
+            if index >= lambda_list_length:
+                raise RuntimeError("index {} out of lambda_list_length {}".format(index, lambda_list_length))
+            param_dict['lambda'] = lambda_list[index]
+            # the key for this dictionary is the name of the layer
+            reg_params[param] = param_dict
+    model.reg_params = reg_params
     return model
 
 
