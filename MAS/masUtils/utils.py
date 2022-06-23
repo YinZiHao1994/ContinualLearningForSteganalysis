@@ -108,7 +108,7 @@ def init_reg_params_across_tasks(model, task_no, use_gpu, freeze_layers=None):
     device = torch.device("cuda:0" if use_gpu else "cpu")
 
     reg_params = model.reg_params
-    lambda_list = model.lambda_list
+    lambda_list = model.lambda_list = create_lambda_list(model)
     lambda_list_length = len(lambda_list)
 
     for index, (name, param) in enumerate(model.tmodel.named_parameters()):
@@ -144,6 +144,20 @@ def init_reg_params_across_tasks(model, task_no, use_gpu, freeze_layers=None):
     model.reg_params = reg_params
 
     return model
+
+
+def create_lambda_list(model):
+    # 每一层单独设定lambda
+    model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
+    prior_length = 0
+    lambda_list = []
+    for index, (name, param) in enumerate(model.tmodel.named_parameters()):
+        if name == 'bn72.bias':
+            prior_length = index
+            lambda_list = [model.prior_lambda] * (prior_length + 1)
+    lambda_list.extend([model.later_lambda] * (model_layer_length - prior_length - 1))
+    print(lambda_list)
+    return lambda_list
 
 
 def change_reg_params(model, lambda_list):

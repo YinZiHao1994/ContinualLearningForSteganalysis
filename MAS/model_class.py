@@ -10,6 +10,7 @@ from torchvision import datasets, models, transforms
 
 import os
 import shutil
+from MAS.masUtils import utils, model_utils
 
 
 # The idea is to have classification layers for different tasks
@@ -50,24 +51,10 @@ class SharedModel(nn.Module):
         self.used_omega_weight = torch.tensor(used_omega_weight, requires_grad=False)
         self.max_omega_weight = torch.tensor(max_omega_weight, requires_grad=False)
         # self.weight_params = {'used_omega_weight': used_omega_weight, 'max_omega_weight': max_omega_weight}
-        self.lambda_list = create_lambda_list(self)
+        self.lambda_list = utils.create_lambda_list(self)
 
     def forward(self, x):
         return self.tmodel(x)
-
-
-def create_lambda_list(model):
-    # 每一层单独设定lambda
-    model_layer_length = sum(1 for _ in model.tmodel.named_parameters())
-    prior_length = 0
-    lambda_list = []
-    for index, (name, param) in enumerate(model.tmodel.named_parameters()):
-        if name == 'bn72.bias':
-            prior_length = index
-            lambda_list = [prior_lambda] * (prior_length + 1)
-    lambda_list.extend([later_lambda] * (model_layer_length - prior_length - 1))
-    print(lambda_list)
-    return lambda_list
 
 
 class AutomaticWeightedLoss(nn.Module):
