@@ -183,8 +183,8 @@ def init_console_log():
     # log_file_name = log_file_name + '-lr变一次'
     log_file_name = log_file_name + '-lr不变'
     # log_file_name = log_file_name + '-全连接通用并冻结'
-    log_file_name = log_file_name + '-独立控制lambda,prior_lambda-{},later_lambda-{}'.format(model_class.prior_lambda,
-                                                                                         model_class.later_lambda)
+    log_file_name = log_file_name + '-独立控制lambda,prior_lambda-{},later_lambda-{}'.format(model_class.PRIOR_LAMBDA,
+                                                                                         model_class.LATER_LAMBDA)
     log_file_name = log_file_name + '-去除consolidate'
     log_file_name = log_file_name + '-omega独立_max_omega占{}权重，正常omega加值占{}'.format(model_class.max_omega_weight,
                                                                                   model_class.used_omega_weight)
