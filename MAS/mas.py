@@ -28,14 +28,18 @@ from MAS.optimizer_lib import *
 from MAS.model_train import *
 from MAS.masUtils import utils, model_utils
 
+use_gpu = torch.cuda.is_available()
 
-def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid, lr=0.001,
-              reg_lambda=0.01, use_awl=False, use_gpu=False):
+
+def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
+              lr=0.001, reg_lambda=0.01, use_awl=False, use_gpu=False):
     """
     Outputs:
     1) model: Returns a trained model
 
     Function: Trains the model on a particular task and deals with different tasks in the sequence
+    :param lr:
+    :param reg_lambda:
     :param model: A reference to the model that is being exposed to the data for the task
     :param task_no: The task that is being exposed to the model identified by it's number
     :param num_freeze_layers: The number of layers that you want to freeze in the feature extractor of the Alexnet

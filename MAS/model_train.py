@@ -376,9 +376,10 @@ def calculate_regulation(model, reg_params, use_gpu):
                 #     used_omega = ome * (omega_list_length - i) + used_omega
                 if max_omega is None:
                     max_omega = torch.zeros_like(ome)
-                # used_omega = ome * (omega_list_length - i) + used_omega
                 max_omega = torch.max(max_omega, ome)
-                used_omega = ome + used_omega
+                # 由于网络在训练中已经考虑了omega的影响，此处叠加omega，越早计算得到的omega占的权重应该越小
+                used_omega = ome * (i + 1) / omega_list_length + used_omega
+                # used_omega = ome + used_omega
                 # if self.flag < 1:
                 #     print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
                 #     print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
