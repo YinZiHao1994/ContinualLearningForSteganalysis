@@ -193,7 +193,7 @@ def init_console_log():
     # log_file_name = log_file_name + '-omega独立_所有omega的最大值占0.5权重'
     log_file_name = log_file_name + '.log'
     log_file = os.path.join(LOG_PATH, 'str_with_lll_' + str(time.time()) + '.log')
-    common_utils.Logger(log_file)
+    common_utils.ConsoleLogger(log_file)
     print(log_file_name)
 
 

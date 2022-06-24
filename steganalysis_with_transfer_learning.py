@@ -6,7 +6,6 @@ import numpy as np
 # import pandas as pd
 from pathlib import Path
 import copy
-import logging
 
 import torch
 import torch.nn as nn
@@ -87,11 +86,11 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
             acc_history.append(corrects / data_num)
 
         if i % TRAIN_PRINT_FREQUENCY == 0:
-            logging.info('train epoch: [{0}][{1}/{2}]\t'
-                         'Acc {acc:.4f}\t'
-                         'Loss {loss:.4f} \t'
-                         .format(epoch, i, len(train_loader), acc=100. * train_correct / total,
-                                 loss=train_loss / (i + 1)))
+            print('train epoch: [{0}][{1}/{2}]\t'
+                  'Acc {acc:.4f}\t'
+                  'Loss {loss:.4f} \t'
+                  .format(epoch, i, len(train_loader), acc=100. * train_correct / total,
+                          loss=train_loss / (i + 1)))
     diagram_save_path = os.path.join(os.getcwd(), "diagram", steganography.name)
     dataAnalyze.save_loss_plot(diagram_save_path, counter, loss_history,
                                "loss_train" + "_" + str(epoch))
@@ -101,7 +100,7 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
 
 
 def evaluate(model, device, data_loader):
-    logging.info('start evaluate')
+    print('start evaluate')
     model.eval()
     test_loss = 0.0
     correct = 0.0
@@ -136,22 +135,22 @@ def evaluate(model, device, data_loader):
     # accuracy = correct / (len(eval_loader.dataset) * 2)
     accuracy = 100. * correct / total
 
-    if accuracy > best_acc:
-        best_acc = accuracy
-        # all_state = {
-        #     'original_state': model.state_dict(),
-        #     'optimizer_state': optimizer.state_dict(),
-        #     'epoch': epoch
-        # }
-        # torch.save(all_state, params_path)
+    # if accuracy > best_acc:
+    #     best_acc = accuracy
+    # all_state = {
+    #     'original_state': model.state_dict(),
+    #     'optimizer_state': optimizer.state_dict(),
+    #     'epoch': epoch
+    # }
+    # torch.save(all_state, params_path)
 
-    logging.info('-' * 8)
+    print('-' * 8)
     test_loss = test_loss / batch_num
-    logging.info('Evaluate loss: {:.4f}'.format(test_loss))
-    logging.info('Eval accuracy: {:.4f}'.format(accuracy))
-    logging.info('Best accuracy:{:.4f}'.format(best_acc))
-    logging.info('-' * 8)
-    return best_acc, test_loss
+    print('Evaluate loss: {:.4f}'.format(test_loss))
+    print('Eval accuracy: {:.4f}'.format(accuracy))
+    # print('Best accuracy:{:.4f}'.format(best_acc))
+    print('-' * 8)
+    return accuracy, test_loss
 
 
 # Initialization
@@ -165,22 +164,6 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-def set_logger(log_path, mode='a'):
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-
-    if not logger.handlers:
-        # Logging to a file
-        file_handler = logging.FileHandler(log_path, mode=mode)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s: %(message)s', '%Y-%m-%d %H:%M:%S'))
-        logger.addHandler(file_handler)
-
-        # Logging to console
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(logging.Formatter('%(message)s'))
-        logger.addHandler(stream_handler)
-
-
 def individual_learn(target_dataset, target_steganography, reuse_model, reused_steganography=None, reused_dataset=None):
     """
     训练一种隐写分析算法模型。
@@ -192,7 +175,7 @@ def individual_learn(target_dataset, target_steganography, reuse_model, reused_s
     :param reused_dataset: 之前已保存的模型所使用的数据集。如果 @reuse_model 参数是 False，此参数可以不传。
     """
     device = torch.device("cuda" if use_gpu else "cpu")
-    init_logger(target_dataset, target_steganography)
+    # init_logger(target_dataset, target_steganography)
 
     test_loader, train_loader, valid_loader = generate_data_loaders(target_dataset, target_steganography)
 
@@ -209,8 +192,8 @@ def individual_learn(target_dataset, target_steganography, reuse_model, reused_s
     model = train_model(device, model, params_save_file_path, train_loader, valid_loader, target_steganography)
     torch.save(model, target_model_save_path)
 
-    logging.info('\nTest model {}'.format(target_steganography.name))
-    evaluate(model, device, test_loader)
+    print('\nTest model {}'.format(target_steganography.name))
+    return evaluate(model, device, test_loader)
 
 
 def generate_model_save_file_name(dataset_enum, steganography_enum):
@@ -244,6 +227,7 @@ def transfer_learning(dataset_steganography_list):
     init_console_log()
     device = torch.device("cuda" if use_gpu else "cpu")
     # 迁移学习训练
+    result_record = []
     for index, dataset_steganography in enumerate(dataset_steganography_list):
         pre_dataset = None
         pre_steganography = None
@@ -253,7 +237,8 @@ def transfer_learning(dataset_steganography_list):
             pre_dataset_steganography = dataset_steganography_list[index - 1]
             pre_dataset = pre_dataset_steganography['dataset']
             pre_steganography = pre_dataset_steganography['steganography']
-        individual_learn(dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
+        accuracy, test_loss = individual_learn(dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
+        result_record.append(('[' + dataset_enum.name + '-' + steganography_enum.name + ']', accuracy, test_loss))
 
     # 释放显存
     if hasattr(torch.cuda, 'empty_cache'):
@@ -263,17 +248,17 @@ def transfer_learning(dataset_steganography_list):
     last_dataset = last_dataset_steganography['dataset']
     last_steganography = last_dataset_steganography['steganography']
     model = generate_model(device, None, None, True, last_steganography, last_dataset)
-    for dataset_steganography in dataset_steganography_list:
+    for index, dataset_steganography in enumerate(dataset_steganography_list):
         dataset_enum = dataset_steganography['dataset']
         steganography_enum = dataset_steganography['steganography']
         test_loader, train_loader, valid_loader = generate_data_loaders(dataset_enum, steganography_enum)
 
-        logging.info(
-            'Test transfer learning {}-{}model\'s performance in former steganography {}-{}'.format(last_dataset.name,
-                                                                                                    last_steganography.name,
-                                                                                                    dataset_enum.name,
-                                                                                                    steganography_enum.name))
+        print('Test transfer learning {}-{}model\'s performance in former steganography {}-{}'
+              .format(last_dataset.name, last_steganography.name, dataset_enum.name, steganography_enum.name))
         evaluate(model, device, test_loader)
+        record_name, accuracy, test_loss = result_record[index]
+        print('in former special training {} model\'s performance is accuracy: {}, test_loss: {}'
+              .format(record_name, accuracy, test_loss))
 
 
 def init_console_log():
@@ -287,7 +272,7 @@ def init_console_log():
     log_file = os.path.join(LOG_PATH, log_file_name)
     if not os.path.exists(LOG_PATH):
         os.makedirs(LOG_PATH)
-    common_utils.Logger(log_file)
+    common_utils.ConsoleLogger(log_file)
 
 
 class DiagramData:
@@ -318,7 +303,7 @@ def train_model(device, model, params_save_file_path, train_loader, valid_loader
         # scheduler.step()
         model = train_implement(model, device, train_loader, optimizer, epoch, steganography, diagram_data)
         if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
-            logging.info('Evaluate in epoch {}'.format(epoch))
+            print('Evaluate in epoch {}'.format(epoch))
             evaluate(model, device, valid_loader)
         print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
         scheduler.step()
@@ -338,7 +323,7 @@ def init_logger(dataset_enum, steganography_enum):
     log_path = os.path.join(LOG_PATH, log_name)
     if not os.path.exists(LOG_PATH):
         os.makedirs(LOG_PATH)
-    set_logger(log_path, mode='w')
+    common_utils.set_logger(log_path, mode='w')
 
 
 def generate_data_loaders(dataset_enum, steganography_enum):

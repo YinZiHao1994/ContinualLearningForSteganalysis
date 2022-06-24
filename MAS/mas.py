@@ -181,5 +181,6 @@ def compute_forgetting(model, task_no, dataloader, use_gpu):
     old_performance = float(old_performance)
     epoch_accuracy = (epoch_accuracy.item() if torch.is_tensor(epoch_accuracy) else epoch_accuracy)
     forgetting = epoch_accuracy - old_performance
-    print("on task {} the old_accuracy and new_accuracy  is {} and {}".format(task_no, old_performance, epoch_accuracy))
+    print("on task {} the old_accuracy and new_accuracy  is {} and {}"
+          .format(task_no, old_performance * 100, epoch_accuracy * 100))
     return forgetting

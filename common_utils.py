@@ -5,6 +5,7 @@ import numpy
 
 import shutil
 import sys
+import logging
 
 
 # 获取文件所在文件夹的路径
@@ -224,7 +225,7 @@ def read_pkl_file(file_path):
     f.close()
 
 
-class Logger(object):
+class ConsoleLogger(object):
     def __init__(self, filename='default.log'):
         self.terminal = sys.stdout
         self.log = open(filename, 'w')
@@ -237,4 +238,20 @@ class Logger(object):
     def flush(self):
         pass
 
+
 # sys.stderr = Logger('a.log_file', sys.stderr)
+
+def set_logger(log_path, mode='a'):
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:
+        # Logging to a file
+        file_handler = logging.FileHandler(log_path, mode=mode)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s: %(message)s', '%Y-%m-%d %H:%M:%S'))
+        logger.addHandler(file_handler)
+
+        # Logging to console
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(logging.Formatter('%(message)s'))
+        logger.addHandler(stream_handler)
