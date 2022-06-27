@@ -164,9 +164,13 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-def individual_learn(target_dataset, target_steganography, reuse_model, reused_steganography=None, reused_dataset=None):
+def individual_learn(target_dataset, target_steganography, train_loader=None, valid_loader=None, test_loader=None,
+                     reuse_model=False, reused_steganography=None, reused_dataset=None):
     """
     训练一种隐写分析算法模型。
+    :param train_loader:
+    :param valid_loader:
+    :param test_loader:
     :param target_dataset: 所使用的数据集
     :param target_steganography:希望分析的隐写算法
     :param reuse_model: 是否在之前已保存的模型基础上继续训练
@@ -176,8 +180,6 @@ def individual_learn(target_dataset, target_steganography, reuse_model, reused_s
     """
     device = torch.device("cuda" if use_gpu else "cpu")
     # init_logger(target_dataset, target_steganography)
-
-    test_loader, train_loader, valid_loader = generate_data_loaders(target_dataset, target_steganography)
 
     if not os.path.exists(MODEL_EXPORT_PATH):
         os.makedirs(MODEL_EXPORT_PATH)
@@ -227,7 +229,17 @@ def transfer_learning(dataset_steganography_list):
     init_console_log()
     device = torch.device("cuda" if use_gpu else "cpu")
     # 迁移学习训练
+    train_dset_loaders = []
+    valid_dset_loaders = []
+    test_dset_loaders = []
     result_record = []
+    for index, dataset_steganography in enumerate(dataset_steganography_list):
+        dataset_enum = dataset_steganography['dataset']
+        steganography_enum = dataset_steganography['steganography']
+        test_loader, train_loader, valid_loader = generate_data_loaders(dataset_enum, steganography_enum)
+        train_dset_loaders.append(train_loader)
+        valid_dset_loaders.append(valid_loader)
+        test_dset_loaders.append(test_loader)
     for index, dataset_steganography in enumerate(dataset_steganography_list):
         pre_dataset = None
         pre_steganography = None
@@ -237,7 +249,13 @@ def transfer_learning(dataset_steganography_list):
             pre_dataset_steganography = dataset_steganography_list[index - 1]
             pre_dataset = pre_dataset_steganography['dataset']
             pre_steganography = pre_dataset_steganography['steganography']
-        accuracy, test_loss = individual_learn(dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
+        dataloader_train = train_dset_loaders[index]
+        dataloader_valid = valid_dset_loaders[index]
+        dataloader_test = test_dset_loaders[index]
+        accuracy, test_loss = individual_learn(dataset_enum, steganography_enum,
+                                               dataloader_train, dataloader_valid, dataloader_test,
+                                               reuse_model=True, reused_steganography=pre_steganography,
+                                               reused_dataset=pre_dataset)
         result_record.append(('[' + dataset_enum.name + '-' + steganography_enum.name + ']', accuracy, test_loss))
 
     # 释放显存
@@ -251,11 +269,10 @@ def transfer_learning(dataset_steganography_list):
     for index, dataset_steganography in enumerate(dataset_steganography_list):
         dataset_enum = dataset_steganography['dataset']
         steganography_enum = dataset_steganography['steganography']
-        test_loader, train_loader, valid_loader = generate_data_loaders(dataset_enum, steganography_enum)
-
+        dataloader_test = test_dset_loaders[index]
         print('Test transfer learning {}-{}model\'s performance in former steganography {}-{}'
               .format(last_dataset.name, last_steganography.name, dataset_enum.name, steganography_enum.name))
-        evaluate(model, device, test_loader)
+        evaluate(model, device, dataloader_test)
         record_name, accuracy, test_loss = result_record[index]
         print('in former special training {} model\'s performance is accuracy: {}, test_loss: {}'
               .format(record_name, accuracy, test_loss))
