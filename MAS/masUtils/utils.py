@@ -354,12 +354,14 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                     # calculate curvature
                     new_second_derivative = new_second_derivative.abs()
                     first_derivative = param_dict['first_derivative']
+                    first_derivative = first_derivative.cpu()
                     bottom = (1 + first_derivative ** 2) ** (3.0 / 2)
                     curvature = new_second_derivative / bottom
                     omega_list = param_dict['omega_list']
                     # omega = first_derivative.abs() * torch.log(curvature + 1)
                     # 如果曲率趋向于0，说明原始的偏导数在那个点附近的值越稳定，越可信，将它本身的值作为omega即可。否则说明在那个点附近函数值越不稳定，将曲率作为放大系数
-                    omega = first_derivative.abs() * (curvature + 1)
+                    # omega = first_derivative.abs() * (curvature + 1)
+                    omega = first_derivative.abs() * (torch.log(curvature + 1) + 1)
                     # print("first_derivative = {} ,new_second_derivative = {} ,curvature = {} ,omega = {}"
                     #       .format(first_derivative, new_second_derivative, curvature, omega))
                     print("max first_derivative = {} ,min first_derivative = {}"
