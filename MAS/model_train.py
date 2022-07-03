@@ -49,7 +49,6 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     :param use_awl:
 
     """
-    omega_epochs = num_epochs + 1
 
     store_path = os.path.join(os.getcwd(), "models", "Task_" + str(task_no))
     model_path = os.path.join(os.getcwd(), "models")
@@ -139,226 +138,215 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     scheduler_gama = 0.40
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
 
-    for epoch in range(start_epoch, omega_epochs):
+    for epoch in range(start_epoch, num_epochs):
 
-        reg_params = model.reg_params
-        if epoch == omega_epochs - 1:
-            # run the omega accumulation at convergence of the loss function
-            # no training of the model takes place in this epoch
-            optimizer_ft = OmegaUpdate(model.reg_params)
-            print("Updating the omega values for this task")
-            # todo
-            # 是否使用梯度曲率方法
-            use_curvature_gradients_method = False
-            model = compute_omega_grads_norm(model, dataloader_train, optimizer_ft, use_gpu, use_curvature_gradients_method)
+        phase = 'train'
 
-            ############ 打印查看最大和最小的omega #############
-            param_omega_list = []
-            max_omega = None
-            min_omega = None
-            torch_max = 0
-            torch_min = 100000
-            for reg_param in reg_params:
-                reg_param = reg_params[reg_param]
-                param_omega = reg_param['omega']
-                # param_omega_list.append(param_omega)
-                torch_max = max(torch_max, torch.max(param_omega))
-                torch_min = min(torch_min, torch.min(param_omega))
-                # if max_omega is None:
-                #     max_omega = torch.zeros_like(param_omega)
-                # if min_omega is None:
-                #     min_omega = torch.zeros_like(param_omega)
-                # max_omega = torch.maximum(max_omega, param_omega)
-                # min_omega = torch.minimum(min_omega, param_omega)
-            # print("max_omega = {}\nmin_omega = {}".format(max_omega, min_omega))
-            print("compute_omega_grads_norm max_omega = {} min_omega = {}".format(torch_max, torch_min))
-        else:
-            phase = 'train'
+        total = 0
+        best_perform = 10e6
+        # print("Epoch {}/{}".format(epoch, num_epochs))
+        print("-" * 20)
+        # print ("The training phase is ongoing")
+        running_loss = 0
+        running_corrects = 0.0
+        # scales the optimizer every 20 epochs
+        # scheduler = exp_lr_scheduler(optimizer, epoch, lr, 40)
 
+        model.tmodel.train(True)
+
+        for index, sample in enumerate(dataloader_train):
+            if index % 50 == 0:
+                print("sample {}/{} in dataloader_train".format(index, len(dataloader_train)))
+
+            datas, labels = sample['data'], sample['label']
+            shape = list(datas.size())
+            datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+            labels = labels.reshape(-1)
+            # shuffle
+            idx = torch.randperm(shape[0])
+            data = datas[idx]
+            label = labels[idx]
+
+            if use_gpu:
+                data = data.to(device)
+                label = label.to(device)
+
+            else:
+                data = Variable(data)
+                label = Variable(label)
+
+            model.tmodel.to(device)
+            optimizer.zero_grad()
+
+            output = model.tmodel(data)
+            del data
+
+            origin_loss = model_criterion(output, label)
+            if use_penalized_sgd:
+                loss = origin_loss
+            else:
+                # loss = origin_loss + regulation
+                if task_no == 1:
+                    loss = origin_loss
+                    if index % 100 == 0:
+                        print("loss = {}".format(loss))
+                else:
+                    regulation = calculate_regulation(model, use_gpu)
+                    if use_awl:
+                        loss = automatic_weighted_loss(origin_loss, regulation)
+                    else:
+                        loss = origin_loss + regulation
+                    if index % 100 == 0:
+                        print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
+                        # for i, lam in enumerate(model.lambda_list):
+                        #     print("lambda in position {} is {}".format(i, lam))
+                        if use_awl:
+                            for b, batch in enumerate(automatic_weighted_loss.parameters()):
+                                print("automatic_weighted_loss {} is {}".format(b, batch))
+
+            loss.backward()
+            # print (model.reg_params)
+
+            # optimizer.step(model.reg_params)
+            optimizer.step()
+
+            data_num = label.size(0)
+            running_loss += loss.item() * data_num
+            # running_corrects += torch.sum(preds == labels.data)
+            prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
+
+            corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+            running_corrects += corrects
+            del labels
+            total += data_num
+
+            # if index % 10 == 0:
+            #     iteration_number[phase] += 10
+            #     counter[phase].append(iteration_number[phase])
+            #     loss_history[phase].append(loss.item())
+            #     acc_history[phase].append(corrects / data_num)
+
+        scheduler.step()
+
+        dataset_size = len(dataloader_train.dataset)
+        epoch_loss = running_loss / total
+        epoch_accuracy = running_corrects / total
+        epoch_number[phase] += 1
+        counter[phase].append(epoch_number[phase])
+        loss_history[phase].append(epoch_loss)
+        acc_history[phase].append(epoch_accuracy)
+        diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
+        dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
+                                   "loss_" + phase + "_" + str(epoch))
+        dataAnalyze.save_accurate_plot(diagram_save_path, counter[phase], acc_history[phase],
+                                       "acc_" + phase + "_" + str(epoch))
+
+        print('train epoch: {}/{}\n'
+              'Loss: {:.4f}\n'
+              'Acc: {:.4f}\n'
+              'lr:{}'
+              .format(epoch + 1, num_epochs, epoch_loss, epoch_accuracy,
+                      optimizer.state_dict()['param_groups'][0]['lr']))
+
+        # avoid saving a file twice
+        if epoch != 0 and epoch != num_epochs - 1 and (epoch + 1) % 10 == 0:
+            epoch_file_name = os.path.join(store_path, str(epoch + 1) + '.pth.tar')
+            torch.save({
+                'epoch': epoch,
+                'epoch_loss': epoch_loss,
+                'epoch_accuracy': epoch_accuracy,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+
+            }, epoch_file_name)
+
+        if (epoch != 0 and (epoch % (num_epochs / 5)) == 0) or epoch == (num_epochs - 1):
+            # evaluate performance specified number
+            phase = 'val'
             total = 0
-            best_perform = 10e6
-            # print("Epoch {}/{}".format(epoch, num_epochs))
-            print("-" * 20)
-            # print ("The training phase is ongoing")
             running_loss = 0
             running_corrects = 0.0
-            # scales the optimizer every 20 epochs
-            # scheduler = exp_lr_scheduler(optimizer, epoch, lr, 40)
 
-            model.tmodel.train(True)
+            model.tmodel.eval()
+            with torch.no_grad():
+                for index, sample in enumerate(dataloader_valid):
+                    if index % 100 == 0:
+                        print("sample {}/{} in dataloader_test".format(index, len(dataloader_valid)))
+                    datas, labels = sample['data'], sample['label']
+                    shape = list(datas.size())
+                    datas = datas.reshape(shape[0] * shape[1], *shape[2:])
+                    labels = labels.reshape(-1)
+                    # shuffle
+                    idx = torch.randperm(shape[0])
+                    data = datas[idx]
+                    label = labels[idx]
 
-            for index, sample in enumerate(dataloader_train):
-                if index % 50 == 0:
-                    print("sample {}/{} in dataloader_train".format(index, len(dataloader_train)))
-
-                datas, labels = sample['data'], sample['label']
-                shape = list(datas.size())
-                datas = datas.reshape(shape[0] * shape[1], *shape[2:])
-                labels = labels.reshape(-1)
-                # shuffle
-                idx = torch.randperm(shape[0])
-                data = datas[idx]
-                label = labels[idx]
-
-                if use_gpu:
-                    data = data.to(device)
-                    label = label.to(device)
-
-                else:
-                    data = Variable(data)
-                    label = Variable(label)
-
-                # if index % 50 == 0:
-                # weight_params = model.weight_params
-                # used_omega_weight = weight_params['used_omega_weight']
-                # max_omega_weight = weight_params['max_omega_weight']
-                # used_omega_weight = model.used_omega_weight
-                # max_omega_weight = model.max_omega_weight
-                # print("used_omega_weight = {} sigmoid（used_omega_weight） = {},"
-                #       .format(used_omega_weight, torch.sigmoid(used_omega_weight)))
-                # print("used_omega_weight.requires_grad = {} used_omega_weight.grad = {},".format(
-                #     model.used_omega_weight.requires_grad, model.used_omega_weight.grad))
-
-                model.tmodel.to(device)
-                optimizer.zero_grad()
-
-                output = model.tmodel(data)
-                del data
-
-                origin_loss = model_criterion(output, label)
-                if use_penalized_sgd:
-                    loss = origin_loss
-                else:
-                    # loss = origin_loss + regulation
-                    if task_no == 1:
-                        loss = origin_loss
-                        if index % 100 == 0:
-                            print("loss = {}".format(loss))
+                    del sample
+                    if use_gpu:
+                        data = data.to(device)
+                        label = label.to(device)
                     else:
-                        regulation = calculate_regulation(model, reg_params, use_gpu)
-                        if use_awl:
-                            loss = automatic_weighted_loss(origin_loss, regulation)
-                        else:
-                            loss = origin_loss + regulation
-                        if index % 100 == 0:
-                            print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
-                            # for i, lam in enumerate(model.lambda_list):
-                            #     print("lambda in position {} is {}".format(i, lam))
-                            if use_awl:
-                                for b, batch in enumerate(automatic_weighted_loss.parameters()):
-                                    print("automatic_weighted_loss {} is {}".format(b, batch))
+                        data = Variable(data)
+                        label = Variable(label)
 
-                loss.backward()
-                # print (model.reg_params)
+                    # optimizer.zero_grad()
 
-                # optimizer.step(model.reg_params)
-                optimizer.step()
+                    output = model.tmodel(data)
+                    del data
+                    loss = model_criterion(output, label)
+                    # running_corrects += torch.sum(preds == labels.data)
+                    prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
 
-                data_num = label.size(0)
-                running_loss += loss.item() * data_num
-                # running_corrects += torch.sum(preds == labels.data)
-                prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
-
-                corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
-                running_corrects += corrects
-                del labels
-                total += data_num
-
-                # if index % 10 == 0:
-                #     iteration_number[phase] += 10
-                #     counter[phase].append(iteration_number[phase])
-                #     loss_history[phase].append(loss.item())
-                #     acc_history[phase].append(corrects / data_num)
-
-            scheduler.step()
-
-            dataset_size = len(dataloader_train.dataset)
-            epoch_loss = running_loss / total
-            epoch_accuracy = running_corrects / total
-            epoch_number[phase] += 1
-            counter[phase].append(epoch_number[phase])
-            loss_history[phase].append(epoch_loss)
-            acc_history[phase].append(epoch_accuracy)
+                    corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
+                    running_corrects += corrects
+                    del labels
+                    data_num = label.size(0)
+                    total += data_num
+                    if index % 10 == 0:
+                        iteration_number[phase] += 10
+                        counter[phase].append(iteration_number[phase])
+                        loss_history[phase].append(loss.item())
+                        acc_history[phase].append(corrects / data_num)
             diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
             dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
                                        "loss_" + phase + "_" + str(epoch))
             dataAnalyze.save_accurate_plot(diagram_save_path, counter[phase], acc_history[phase],
                                            "acc_" + phase + "_" + str(epoch))
+            dataset_size = len(dataloader_valid.dataset)
+            epoch_accuracy = running_corrects / total
+            print("valuate in epoch {} accuracy is {}".format(epoch, epoch_accuracy))
 
-            print('train epoch: {}/{}\n'
-                  'Loss: {:.4f}\n'
-                  'Acc: {:.4f}\n'
-                  'lr:{}'
-                  .format(epoch + 1, num_epochs, epoch_loss, epoch_accuracy,
-                          optimizer.state_dict()['param_groups'][0]['lr']))
+    # update omega
+    reg_params = model.reg_params
+    # run the omega accumulation at convergence of the loss function
+    # no training of the model takes place in this epoch
+    optimizer_ft = OmegaUpdate(model.reg_params)
+    print("Updating the omega values for this task")
+    # todo
+    # 是否使用梯度曲率方法
+    use_curvature_gradients_method = False
+    model = compute_omega_grads_norm(model, dataloader_train, optimizer_ft, use_gpu, use_curvature_gradients_method)
 
-            # avoid saving a file twice
-            if epoch != 0 and epoch != num_epochs - 1 and (epoch + 1) % 10 == 0:
-                epoch_file_name = os.path.join(store_path, str(epoch + 1) + '.pth.tar')
-                torch.save({
-                    'epoch': epoch,
-                    'epoch_loss': epoch_loss,
-                    'epoch_accuracy': epoch_accuracy,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-
-                }, epoch_file_name)
-
-            if (epoch != 0 and (epoch % (num_epochs / 5)) == 0) or epoch == (num_epochs - 1):
-                # evaluate performance specified number
-                phase = 'val'
-                total = 0
-                running_loss = 0
-                running_corrects = 0.0
-
-                model.tmodel.eval()
-                with torch.no_grad():
-                    for index, sample in enumerate(dataloader_valid):
-                        if index % 100 == 0:
-                            print("sample {}/{} in dataloader_test".format(index, len(dataloader_valid)))
-                        datas, labels = sample['data'], sample['label']
-                        shape = list(datas.size())
-                        datas = datas.reshape(shape[0] * shape[1], *shape[2:])
-                        labels = labels.reshape(-1)
-                        # shuffle
-                        idx = torch.randperm(shape[0])
-                        data = datas[idx]
-                        label = labels[idx]
-
-                        del sample
-                        if use_gpu:
-                            data = data.to(device)
-                            label = label.to(device)
-                        else:
-                            data = Variable(data)
-                            label = Variable(label)
-
-                        # optimizer.zero_grad()
-
-                        output = model.tmodel(data)
-                        del data
-                        loss = model_criterion(output, label)
-                        # running_corrects += torch.sum(preds == labels.data)
-                        prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
-
-                        corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
-                        running_corrects += corrects
-                        del labels
-                        data_num = label.size(0)
-                        total += data_num
-                        if index % 10 == 0:
-                            iteration_number[phase] += 10
-                            counter[phase].append(iteration_number[phase])
-                            loss_history[phase].append(loss.item())
-                            acc_history[phase].append(corrects / data_num)
-                diagram_save_path = os.path.join(os.getcwd(), "diagram", "Task_" + str(task_no))
-                dataAnalyze.save_loss_plot(diagram_save_path, counter[phase], loss_history[phase],
-                                           "loss_" + phase + "_" + str(epoch))
-                dataAnalyze.save_accurate_plot(diagram_save_path, counter[phase], acc_history[phase],
-                                               "acc_" + phase + "_" + str(epoch))
-                dataset_size = len(dataloader_valid.dataset)
-                epoch_accuracy = running_corrects / total
-                print("valuate in epoch {} accuracy is {}".format(epoch, epoch_accuracy))
+    ############ 打印查看最大和最小的omega #############
+    param_omega_list = []
+    max_omega = None
+    min_omega = None
+    torch_max = 0
+    torch_min = 100000
+    for reg_param in reg_params:
+        reg_param = reg_params[reg_param]
+        param_omega = reg_param['omega']
+        # param_omega_list.append(param_omega)
+        torch_max = max(torch_max, torch.max(param_omega))
+        torch_min = min(torch_min, torch.min(param_omega))
+        # if max_omega is None:
+        #     max_omega = torch.zeros_like(param_omega)
+        # if min_omega is None:
+        #     min_omega = torch.zeros_like(param_omega)
+        # max_omega = torch.maximum(max_omega, param_omega)
+        # min_omega = torch.minimum(min_omega, param_omega)
+    # print("max_omega = {}\nmin_omega = {}".format(max_omega, min_omega))
+    print("compute_omega_grads_norm max_omega = {} min_omega = {}".format(torch_max, torch_min))
 
     time_elapsed = time.time() - since_time
     print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -367,13 +355,14 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     save_model(model, task_no)
 
 
-def calculate_regulation(model, reg_params, use_gpu):
+def calculate_regulation(model, use_gpu):
     # weight_params = model.weight_params
     # used_omega_weight = weight_params['used_omega_weight']
     # max_omega_weight = weight_params['max_omega_weight']
     used_omega_weight = model.used_omega_weight
     max_omega_weight = model.max_omega_weight
     named_parameters = model.tmodel.named_parameters()
+    reg_params = model.reg_params
     regulation = 0
     for index, (name, p) in enumerate(named_parameters):
         if p in reg_params:
