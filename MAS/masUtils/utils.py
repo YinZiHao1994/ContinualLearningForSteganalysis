@@ -244,10 +244,10 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu, use_curvatur
         # use_my_omega_method = False
         # print("是否使用自己实现的omega计算方法 {}".format(use_my_omega_method))
         # if not use_my_omega_method:
-            # compute gradients for these parameters
-            # sum_norm.backward()
-            # optimizer.step computes the omega values for the new batches of sample
-            # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
+        # compute gradients for these parameters
+        # sum_norm.backward()
+        # optimizer.step computes the omega values for the new batches of sample
+        # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
         # else:
         # 一阶和二阶导数的计算
         param_groups = optimizer.param_groups
@@ -284,7 +284,7 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu, use_curvatur
                                  use_gpu, use_curvature_gradients_method)
             del grad_norm
         del labels
-
+        del filter_parms
     return model
 
 
@@ -326,8 +326,8 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                         omega = first_derivative.abs().cpu()
                         omega_list = param_dict['omega_list']
                         omega_list.append(omega)
-                        print("max omega = {} ,min omega = {}"
-                              .format(omega.max(), omega.min()))
+                        print("max omega = {} ,min omega = {} ,omega mean = {}"
+                              .format(omega.max(), omega.min(), omega.mean()))
                         param_dict['omega_list'] = omega_list
                 # if batch_index % 10 == 0:
                 # print("in index {} ,param {}'s old first_derivative is {}\nnew first_derivative is {}"

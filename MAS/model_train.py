@@ -399,7 +399,19 @@ def calculate_regulation(model, use_gpu):
             # get the difference
             param_diff = curr_param_value_copy - init_val
             mul = torch.mul(param_diff ** 2, used_omega)
-            regulation += reg_lambda * mul.sum()
+            # 限制regulation的大小，防止梯度爆炸
+            mul_sum = mul.sum()
+            if mul_sum > 1:
+                mul_sum = mul_sum / (10 ** count_number(mul_sum))
+            regulation += reg_lambda * mul_sum
         else:
             print("param in index {} not in reg_params".format(index))
     return regulation
+
+
+def count_number(n):
+    c = 0
+    while n != 0:
+        n = n / 10
+        c += 1
+    return c
