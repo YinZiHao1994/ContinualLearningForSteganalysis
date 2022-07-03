@@ -283,8 +283,7 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu, use_curvatur
             deal_with_derivative(model, index, dataloader_len, labels.size(0), filter_parms, two_order_gradients, 2,
                                  use_gpu, use_curvature_gradients_method)
             del grad_norm
-        del one_order_gradients
-        del two_order_gradients
+            del two_order_gradients
         del labels
         del filter_parms
     return model
