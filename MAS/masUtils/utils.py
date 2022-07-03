@@ -323,7 +323,7 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                     first_derivative_list = param_dict['first_derivative_list']
                     first_derivative_list.append(new_first_derivative)
                     if not curvature_gradients_method:
-                        omega = first_derivative.abs().cpu()
+                        omega = new_first_derivative.abs().cpu()
                         omega_list = param_dict['omega_list']
                         omega_list.append(omega)
                         print("max omega = {} ,min omega = {} ,omega mean = {}"
