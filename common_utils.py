@@ -165,26 +165,6 @@ def rename_file_in_dir(dir_name, suffix=None):
         raise Exception("路径不存在")
 
 
-# 临时用的方法
-def temp_rename_file_in_dir(dir_name, suffix=None):
-    if os.path.isfile(dir_name):
-        file_path = dir_name
-        pure_file_name = get_pure_file_name_from_path(file_path)
-        last_num = pure_file_name[-1]
-        new_path = replace_char(file_path, "0", len(file_path) - 5)
-        if suffix is not None:
-            new_path = insert_str_in_file_name_end(new_path, "_{}".format(suffix))
-        new_path = insert_str_in_file_name_end(new_path, "_{}".format(last_num))
-        # print("rename {} to {} ".format(file_path, new_path))
-        os.rename(file_path, new_path)
-        pass
-    elif os.path.isdir(dir_name):
-        for file in os.listdir(dir_name):
-            file_path = os.path.join(dir_name, file)
-            temp_rename_file_in_dir(file_path, suffix)
-    else:
-        raise Exception("路径不存在")
-
 
 # 把一个文件夹下的所有文件根据文件名复制到另一个文件夹下的对应文件夹中。就是把同类的文件（比如“美少女_xxx.jpg”系列的文件全都归类到“美少女”文件夹）归类整理
 def copy_files_to_same_kind_dir(source_dir, target_dir):

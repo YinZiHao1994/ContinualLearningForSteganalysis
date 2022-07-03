@@ -360,9 +360,9 @@ def calculate_regulation(model, reg_params, use_gpu):
     # max_omega_weight = weight_params['max_omega_weight']
     used_omega_weight = model.used_omega_weight
     max_omega_weight = model.max_omega_weight
-    parameters = model.tmodel.parameters()
+    named_parameters = model.tmodel.named_parameters()
     regulation = 0
-    for index, p in enumerate(parameters):
+    for index, (name, p) in enumerate(named_parameters):
         if p in reg_params:
             param_dict = reg_params[p]
 
