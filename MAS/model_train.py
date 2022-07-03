@@ -147,7 +147,10 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
             # no training of the model takes place in this epoch
             optimizer_ft = OmegaUpdate(model.reg_params)
             print("Updating the omega values for this task")
-            model = compute_omega_grads_norm(model, dataloader_train, optimizer_ft, use_gpu)
+            # todo
+            # 是否使用梯度曲率方法
+            use_curvature_gradients_method = False
+            model = compute_omega_grads_norm(model, dataloader_train, optimizer_ft, use_gpu, use_curvature_gradients_method)
 
             ############ 打印查看最大和最小的omega #############
             param_omega_list = []

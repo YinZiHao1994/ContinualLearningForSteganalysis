@@ -186,7 +186,7 @@ def consolidate_reg_params(model, use_gpu):
     return model
 
 
-def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
+def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu, use_curvature_gradients_method):
     """
     Inputs:
     1) model: A reference to the model for which omega is to be calculated
@@ -199,10 +199,12 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
 
     Function: Global version for computing the l2 norm of the function (neural network's) outputs. In
     addition to this, the function also accumulates the values of omega across the items of a task
+    :param use_curvature_gradients_method:
 
     """
     model.tmodel.eval()
     dataloader_len = len(dataloader)
+    print("是否使用梯度曲率方法 {}".format(use_curvature_gradients_method))
     for index, sample in enumerate(dataloader):
         if index % 50 == 0:
             print("OmegaUpdate sample {}/{} in dataloader_train".format(index, dataloader_len))
@@ -247,9 +249,6 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
             # optimizer.step computes the omega values for the new batches of sample
             # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
         # else:
-        # 是否使用梯度曲率方法
-        curvature_gradients_method = True
-        print("是否使用梯度曲率方法 {}".format(curvature_gradients_method))
         # 一阶和二阶导数的计算
         param_groups = optimizer.param_groups
         if len(param_groups) > 1:
@@ -262,13 +261,13 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
         # filter_parms = filter(lambda p: (p.requires_grad is not None and p.requires_grad), params)
         one_order_gradients = torch.autograd.grad(outputs=sum_norm, inputs=filter_parms, create_graph=True)
         deal_with_derivative(model, index, dataloader_len, labels.size(0), filter_parms, one_order_gradients, 1,
-                             use_gpu, curvature_gradients_method)
+                             use_gpu, use_curvature_gradients_method)
 
+        del sum_norm
         # torch.autograd.grad does not accumuate the gradients into the .grad attributes
         # It instead returns the gradients as Variable tuples.
-        if curvature_gradients_method:
+        if use_curvature_gradients_method:
             # 开始计算二阶导数
-            del sum_norm
             # now compute the 2-norm of the grad_params
             grad_norm = 0
             for grad in one_order_gradients:
@@ -282,7 +281,8 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
             # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
             two_order_gradients = torch.autograd.grad(outputs=grad_norm, inputs=filter_parms)
             deal_with_derivative(model, index, dataloader_len, labels.size(0), filter_parms, two_order_gradients, 2,
-                                 use_gpu, curvature_gradients_method)
+                                 use_gpu, use_curvature_gradients_method)
+            del grad_norm
         del labels
 
     return model
