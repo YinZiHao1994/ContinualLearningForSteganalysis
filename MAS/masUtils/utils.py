@@ -238,12 +238,15 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
 
         sum_norm = torch.sum(squared_l2_norm)
         del squared_l2_norm
-
-        # compute gradients for these parameters
-        # sum_norm.backward(create_graph=True)
-        # optimizer.step computes the omega values for the new batches of sample
-        # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
-
+        # 是否使用自己实现的omega计算方法
+        # use_my_omega_method = False
+        # print("是否使用自己实现的omega计算方法 {}".format(use_my_omega_method))
+        # if not use_my_omega_method:
+            # compute gradients for these parameters
+            # sum_norm.backward()
+            # optimizer.step computes the omega values for the new batches of sample
+            # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 1)
+        # else:
         # 是否使用梯度曲率方法
         curvature_gradients_method = True
         print("是否使用梯度曲率方法 {}".format(curvature_gradients_method))
@@ -280,25 +283,6 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu):
             two_order_gradients = torch.autograd.grad(outputs=grad_norm, inputs=filter_parms)
             deal_with_derivative(model, index, dataloader_len, labels.size(0), filter_parms, two_order_gradients, 2,
                                  use_gpu, curvature_gradients_method)
-
-        # param_groups = optimizer.param_groups
-        # if len(param_groups) > 1:
-        #     raise RuntimeError('param_groups length is {}'.format(len(param_groups)))
-        # params = param_groups[0]['params']
-        #
-        # one_order_gradients = torch.autograd.grad(outputs=sum_norm, inputs=params,
-        #                                           grad_outputs=torch.ones(sum_norm.size()),
-        #                                           retain_graph=True, create_graph=True)[0]
-        #
-        # deal_with_derivative(model, index, dataloader_len, labels.size(0), params, one_order_gradients, 1, use_gpu)
-        #
-        # two_order_gradients = torch.autograd.grad(outputs=one_order_gradients, inputs=params,
-        #                                           grad_outputs=torch.ones(one_order_gradients.size()),
-        #                                           create_graph=False)[0]
-        # deal_with_derivative(model, index, dataloader_len, labels.size(0), params, two_order_gradients, 2, use_gpu)
-
-        # one_order_gradients.backward(create_graph=False)
-        # optimizer.step(model.reg_params, index, labels.size(0), dataloader_len, use_gpu, 2)
         del labels
 
     return model
@@ -444,12 +428,12 @@ def compute_omega_grads_vector(model, dataloader, optimizer, use_gpu):
                     # This retains the computational graph for further computations
                     targets.backward(retain_graph=True)
 
-                optimizer.step(model.reg_params, False, index, labels.size(0), use_gpu)
+                optimizer.step(False)
 
                 # necessary to compute the correct gradients for each batch of data
                 optimizer.zero_grad()
 
-            optimizer.step(model.reg_params, True, index, labels.size(0), use_gpu)
+            optimizer.step(True)
             index = index + 1
 
     return model

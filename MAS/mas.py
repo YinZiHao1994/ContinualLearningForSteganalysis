@@ -75,7 +75,7 @@ def mas_train(model, task_no, num_epochs, num_freeze_layers, no_of_classes, data
     #            model.tmodel.parameters()), lr, momentum=momentum, weight_decay=0.0005)
 
     train_model(model, task_no, no_of_classes, model_criterion, dataloader_train, dataloader_valid, num_epochs, use_gpu,
-                lr, reg_lambda, use_awl)
+                lr, use_awl)
 
     return model
 

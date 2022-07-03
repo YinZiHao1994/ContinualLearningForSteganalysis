@@ -30,7 +30,7 @@ import dataAnalyze
 
 
 def train_model(model, task_no, num_classes, model_criterion, dataloader_train, dataloader_valid, num_epochs,
-                use_gpu=False, lr=0.001, reg_lambda=0.01, use_awl=False):
+                use_gpu=False, lr=0.001, use_awl=False):
     """
     Outputs:
     1) model: Return a trained model
@@ -113,7 +113,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     filter_parms = filter(lambda p: (p.requires_grad is not None and p.requires_grad) or p.requires_grad is None,
                           model.tmodel.parameters())
     params_wd, params_rest = [], []
-    for name, param_item in model.named_parameters():
+    for name, param_item in model.tmodel.named_parameters():
         if param_item.requires_grad:
             (params_wd if param_item.dim() != 1 else params_rest).append(param_item)
         else:
@@ -126,7 +126,14 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
         param_groups = [{'params': params_wd, 'weight_decay': weight_decay},
                         {'params': params_rest}]
 
-    optimizer = optim.SGD(param_groups, lr=lr, momentum=momentum, weight_decay=0.0005)
+    # todo
+    # 直接在专门的优化器中中实现惩罚项效果的体现还是通过额外的正则化loss让常规的优化器自行调整
+    use_penalized_sgd = False
+    if use_penalized_sgd:
+        optimizer = PenalizedSgd(param_groups, model.reg_params, model.used_omega_weight, model.max_omega_weight, lr=lr,
+                                 momentum=momentum, weight_decay=0.0005)
+    else:
+        optimizer = optim.SGD(param_groups, lr=lr, momentum=momentum, weight_decay=0.0005)
 
     step_size = 15
     scheduler_gama = 0.40
@@ -216,24 +223,27 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                 del data
 
                 origin_loss = model_criterion(output, label)
-                # loss = origin_loss + regulation
-                if task_no == 1:
+                if use_penalized_sgd:
                     loss = origin_loss
-                    if index % 100 == 0:
-                        print("loss = {}".format(loss))
                 else:
-                    regulation = calculate_regulation(model, reg_params, use_gpu)
-                    if use_awl:
-                        loss = automatic_weighted_loss(origin_loss, regulation)
+                    # loss = origin_loss + regulation
+                    if task_no == 1:
+                        loss = origin_loss
+                        if index % 100 == 0:
+                            print("loss = {}".format(loss))
                     else:
-                        loss = origin_loss + regulation
-                    if index % 100 == 0:
-                        print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
-                        # for i, lam in enumerate(model.lambda_list):
-                        #     print("lambda in position {} is {}".format(i, lam))
+                        regulation = calculate_regulation(model, reg_params, use_gpu)
                         if use_awl:
-                            for b, batch in enumerate(automatic_weighted_loss.parameters()):
-                                print("automatic_weighted_loss {} is {}".format(b, batch))
+                            loss = automatic_weighted_loss(origin_loss, regulation)
+                        else:
+                            loss = origin_loss + regulation
+                        if index % 100 == 0:
+                            print("origin_loss = {} regulation = {} loss = {}".format(origin_loss, regulation, loss))
+                            # for i, lam in enumerate(model.lambda_list):
+                            #     print("lambda in position {} is {}".format(i, lam))
+                            if use_awl:
+                                for b, batch in enumerate(automatic_weighted_loss.parameters()):
+                                    print("automatic_weighted_loss {} is {}".format(b, batch))
 
                 loss.backward()
                 # print (model.reg_params)

@@ -16,26 +16,29 @@ import os
 import shutil
 
 
-class LocalSgd(optim.SGD):
-    def __init__(self, params, reg_lambda, weight_params, lr=0.001, momentum=0, dampening=0, weight_decay=0,
-                 nesterov=False):
-        super(LocalSgd, self).__init__(params, lr, momentum, dampening, weight_decay, nesterov)
+class PenalizedSgd(optim.SGD):
+    def __init__(self, params, reg_params, used_omega_weight, max_omega_weight, lr=0.001, momentum=0, dampening=0,
+                 weight_decay=0, nesterov=False):
+        super(PenalizedSgd, self).__init__(params, lr, momentum, dampening, weight_decay, nesterov)
         # 由于现在每一层有自己单独的 reg_lambda ，此处不再使用
         # self.reg_lambda = reg_lambda
-        self.weight_params = weight_params
+        self.used_omega_weight = used_omega_weight
+        self.max_omega_weight = max_omega_weight
+        self.reg_params = reg_params
 
     def __setstate__(self, state):
-        super(LocalSgd, self).__setstate__(state)
+        super(PenalizedSgd, self).__setstate__(state)
 
-    def step(self, reg_params, closure=None):
+    def step(self, closure=None):
 
         loss = None
         use_gpu = torch.cuda.is_available()
 
         if closure is not None:
             loss = closure()
-        used_omega_weight = self.weight_params['used_omega_weight']
-        max_omega_weight = self.weight_params['max_omega_weight']
+        used_omega_weight = self.used_omega_weight
+        max_omega_weight = self.max_omega_weight
+        reg_params = self.reg_params
 
         for group in self.param_groups:
             weight_decay = group['weight_decay']
@@ -55,7 +58,6 @@ class LocalSgd(optim.SGD):
                 if p in reg_params:
                     param_dict = reg_params[p]
 
-                    omega = param_dict['omega']
                     omega_list = param_dict['omega_list']
                     used_omega = 0
                     omega_list_length = len(omega_list)
@@ -64,22 +66,24 @@ class LocalSgd(optim.SGD):
                         #     used_omega = ome * (omega_list_length - i) + used_omega
                         if max_omega is None:
                             max_omega = torch.zeros_like(ome)
-                        # used_omega = ome * (omega_list_length - i) + used_omega
                         max_omega = torch.max(max_omega, ome)
-                        used_omega = ome + used_omega
-                        if self.flag < 1:
-                            print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
-                            print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
+                        # 由于网络在训练中已经考虑了omega的影响，此处叠加omega，越早计算得到的omega占的权重应该越小
+                        used_omega = ome * (i + 1) / omega_list_length + used_omega
+                        # if self.flag < 1:
+                        #     print("in LocalSgd ,ome_{} = {}".format(i, ome[:1, :, :]))
+                        #     print("in LocalSgd ,max_omega_{} = {}".format(i, max_omega[:1, :, :]))
 
+                    used_omega = used_omega / omega_list_length
+                    # used_omega_weight_sigmoid = torch.sigmoid(model.used_omega_weight)
                     used_omega = used_omega * used_omega_weight + max_omega * max_omega_weight
 
                     init_val = param_dict['init_val']
                     reg_lambda = param_dict['lambda']
-                    curr_param_value_copy = p.data.clone()
+                    # curr_param_value_copy = p.data.clone()
+                    curr_param_value_copy = p
                     if use_gpu:
                         curr_param_value_copy = curr_param_value_copy.cuda()
                         init_val = init_val.cuda()
-                        omega = omega.cuda()
                         used_omega = used_omega.cuda()
 
                     # get the difference
@@ -98,7 +102,6 @@ class LocalSgd(optim.SGD):
                     #         .format(local_grad.min(), local_grad.max(), local_grad.mean()))
                     # del param_diff
                     # del init_val
-                    del omega
                     # del curr_param_value_copy
 
                     d_p_with_penalty = d_p + local_grad
