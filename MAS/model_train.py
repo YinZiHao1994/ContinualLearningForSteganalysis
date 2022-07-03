@@ -134,7 +134,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     else:
         optimizer = optim.SGD(param_groups, lr=lr, momentum=momentum, weight_decay=0.0005)
 
-    step_size = 15
+    step_size = 14
     scheduler_gama = 0.40
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=scheduler_gama)
 
