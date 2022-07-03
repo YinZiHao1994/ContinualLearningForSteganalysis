@@ -303,7 +303,7 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                 continue
             # The absolute value of the grad_data that is to be added to first_derivative
             grad_data_copy = grad.clone()
-            # grad_data_copy = grad_data_copy.abs()
+            grad_data_copy_abs = grad_data_copy.abs()
 
             param_dict = reg_params[param]
             if derivative_order == 1:
@@ -316,7 +316,7 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
 
                 # Incremental update for the first_derivative
                 # sum up the magnitude of the gradient
-                new_first_derivative = ((first_derivative.mul(prev_size)).add(grad_data_copy)).div(current_size)
+                new_first_derivative = ((first_derivative.mul(prev_size)).add(grad_data_copy_abs)).div(current_size)
                 new_first_derivative = new_first_derivative.cpu()
                 param_dict['first_derivative'] = new_first_derivative
                 if batch_index == dataloader_len - 1:
@@ -342,7 +342,7 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                 current_size = (batch_index + 1) * batch_size
                 prev_size = batch_index * batch_size
                 step_size = 1 / float(current_size)
-                new_second_derivative = ((second_derivative.mul(prev_size)).add(grad_data_copy)).div(
+                new_second_derivative = ((second_derivative.mul(prev_size)).add(grad_data_copy_abs)).div(
                     current_size)
                 new_second_derivative = new_second_derivative.cpu()
                 param_dict['second_derivative'] = new_second_derivative
@@ -366,8 +366,8 @@ def deal_with_derivative(model, batch_index, dataloader_len, batch_size, params,
                           .format(new_second_derivative.max(), new_second_derivative.min()))
                     print("max curvature = {} ,min curvature = {}"
                           .format(curvature.max(), curvature.min()))
-                    print("max omega = {} ,min omega = {}"
-                          .format(omega.max(), omega.min()))
+                    print("max omega = {} ,min omega = {} ,omega mean = {}"
+                          .format(omega.max(), omega.min(), omega.mean()))
                     omega_list.append(omega)
                     param_dict['omega_list'] = omega_list
                 reg_params[param] = param_dict
