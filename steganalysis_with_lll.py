@@ -143,7 +143,7 @@ def main(dataset_steganography_list, reuse_model):
 
         print("Training the model on task {}, λ = {}, lr = {}".format(task_num, reg_lambda, actual_lr))
 
-        mas.mas_train(model, task_num, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
+        model = mas.mas_train(model, task_num, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
                       actual_lr, reg_lambda=reg_lambda, use_awl=False, use_gpu=use_gpu)
         mas.test_model_performance(task_num, model, dataloader_test)
 

@@ -318,6 +318,7 @@ def save_model(model, task_no):
     path_to_head = os.path.join(PATH_TO_MODEL, "Task_" + str(task_no))
     torch.save(ref.state_dict(), os.path.join(path_to_head, "head.pth"))
     del ref
+    return model
 
 
 def save_performance(epoch_accuracy, task_no):

@@ -245,7 +245,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
               'Loss: {:.4f}\n'
               'Acc: {:.4f}\n'
               'lr:{}'
-              .format(epoch + 1, num_epochs, epoch_loss, epoch_accuracy,
+              .format(epoch, num_epochs, epoch_loss, epoch_accuracy,
                       optimizer.state_dict()['param_groups'][0]['lr']))
 
         # avoid saving a file twice
@@ -316,6 +316,8 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
             epoch_accuracy = running_corrects / total
             print("valuate in epoch {} accuracy is {}".format(epoch, epoch_accuracy))
 
+    # 防止后面更新omega时出现崩溃，此处先保存一次model
+    save_model(model, task_no)
     # update omega
     # run the omega accumulation at convergence of the loss function
     print("Updating the omega values for this task")
@@ -351,7 +353,8 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
     # save the model and the performance
-    save_model(model, task_no)
+    model = save_model(model, task_no)
+    return model
 
 
 def calculate_regulation(model, use_gpu):

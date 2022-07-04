@@ -205,6 +205,10 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu, use_curvatur
     model.tmodel.eval()
     dataloader_len = len(dataloader)
     print("是否使用梯度曲率方法 {}".format(use_curvature_gradients_method))
+    # todo
+    # 是否使用自己实现的omega计算方法
+    use_my_omega_method = False
+    print("是否使用自己实现的omega计算方法 {}".format(use_my_omega_method))
     for index, sample in enumerate(dataloader):
         if index % 50 == 0:
             print("OmegaUpdate sample {}/{} in dataloader_train".format(index, dataloader_len))
@@ -240,10 +244,7 @@ def compute_omega_grads_norm(model, dataloader, optimizer, use_gpu, use_curvatur
 
         sum_norm = torch.sum(squared_l2_norm)
         del squared_l2_norm
-        # todo
-        # 是否使用自己实现的omega计算方法
-        use_my_omega_method = False
-        print("是否使用自己实现的omega计算方法 {}".format(use_my_omega_method))
+
         if not use_my_omega_method:
             # compute gradients for these parameters
             sum_norm.backward()
