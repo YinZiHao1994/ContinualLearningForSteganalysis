@@ -150,15 +150,17 @@ class PenalizedSgd(optim.SGD):
 
 class OmegaUpdate(optim.SGD):
 
-    def __init__(self, params, lr=0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False):
+    def __init__(self, params, lr=0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False,
+                 use_curvature_gradients_method=False):
         super(OmegaUpdate, self).__init__(params, lr, momentum, dampening, weight_decay, nesterov)
+        self.use_curvature_gradients_method = use_curvature_gradients_method
 
     def __setstate__(self, state):
         super(OmegaUpdate, self).__setstate__(state)
 
     def step(self, reg_params, batch_index, batch_size, dataloader_len, use_gpu, derivative_order, closure=None):
         loss = None
-
+        use_curvature_gradients_method = self.use_curvature_gradients_method
         if closure is not None:
             loss = closure()
 
@@ -183,21 +185,30 @@ class OmegaUpdate(optim.SGD):
 
                         # Incremental update for the first_derivative
                         # sum up the magnitude of the gradient
-                        new_first_derivative = ((first_derivative.mul(prev_size)).add(grad_data_copy_abs)).div(current_size)
+                        new_first_derivative = ((first_derivative.mul(prev_size)).add(grad_data_copy_abs)).div(
+                            current_size)
+                        new_first_derivative = new_first_derivative.cpu()
                         param_dict['first_derivative'] = new_first_derivative
+
                         if batch_index == dataloader_len - 1:
                             first_derivative_list = param_dict['first_derivative_list']
-                            first_derivative_list[-1] = new_first_derivative
-                            param_dict['first_derivative_list'] = first_derivative_list
+                            first_derivative_list.append(new_first_derivative)
+                            if not use_curvature_gradients_method:
+                                omega = new_first_derivative.abs().cpu()
+                                omega_list = param_dict['omega_list']
+                                omega_list.append(omega)
+                                print("max omega = {} ,min omega = {} ,omega mean = {}"
+                                      .format(omega.max(), omega.min(), omega.mean()))
+                                param_dict['omega_list'] = omega_list
+                            else:
+                                # pytorch的梯度是自动累加的，求完一阶导数后要清空tensor的grad，否则二阶导数的值会在一阶导数的基础上相加
+                                p.grad.data.zero_()
 
                         # if batch_index % 10 == 0:
                         # print("in index {} ,param {}'s old first_derivative is {}\nnew first_derivative is {}"
                         #       .format(batch_index, p, first_derivative, new_first_derivative))
-
                         reg_params[p] = param_dict
-                        # pytorch的梯度是自动累加的，求完一阶导数后要清空tensor的grad，否则二阶导数的值会在一阶导数的基础上相加
-                        p.grad.data.zero_()
-                    elif derivative_order == 2:
+                    elif derivative_order == 2 and use_curvature_gradients_method:
                         second_derivative = param_dict['second_derivative']
                         second_derivative = second_derivative.to(torch.device("cuda:0" if use_gpu else "cpu"))
                         current_size = (batch_index + 1) * batch_size
@@ -210,10 +221,11 @@ class OmegaUpdate(optim.SGD):
                             # calculate curvature
                             new_second_derivative = new_second_derivative.abs()
                             first_derivative = param_dict['first_derivative']
+                            first_derivative = first_derivative.cpu()
                             bottom = (1 + first_derivative ** 2) ** (3.0 / 2)
                             curvature = new_second_derivative / bottom
                             omega_list = param_dict['omega_list']
-                            omega = first_derivative.abs() * torch.log(curvature + 1)
+                            omega = first_derivative.abs() * (torch.log10(curvature + 1) + 1)
                             # print("first_derivative = {} ,new_second_derivative = {} ,curvature = {} ,omega = {}"
                             #       .format(first_derivative, new_second_derivative, curvature, omega))
                             print("max first_derivative = {} ,min first_derivative = {}"
@@ -222,9 +234,9 @@ class OmegaUpdate(optim.SGD):
                                   .format(new_second_derivative.max(), new_second_derivative.min()))
                             print("max curvature = {} ,min curvature = {}"
                                   .format(curvature.max(), curvature.min()))
-                            print("max omega = {} ,min omega = {}"
-                                  .format(omega.max(), omega.min()))
-                            omega_list[-1] = omega
+                            print("max omega = {} ,min omega = {} ,omega mean = {}"
+                                  .format(omega.max(), omega.min(), omega.mean()))
+                            omega_list.append(omega)
                             param_dict['omega_list'] = omega_list
                         reg_params[p] = param_dict
                     else:

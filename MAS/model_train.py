@@ -317,14 +317,12 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
             print("valuate in epoch {} accuracy is {}".format(epoch, epoch_accuracy))
 
     # update omega
-    reg_params = model.reg_params
     # run the omega accumulation at convergence of the loss function
-    # no training of the model takes place in this epoch
-    optimizer_ft = OmegaUpdate(model.reg_params)
     print("Updating the omega values for this task")
     # todo
     # 是否使用梯度曲率方法
     use_curvature_gradients_method = False
+    optimizer_ft = OmegaUpdate(model.reg_params, use_curvature_gradients_method=use_curvature_gradients_method)
     model = compute_omega_grads_norm(model, dataloader_train, optimizer_ft, use_gpu, use_curvature_gradients_method)
 
     ############ 打印查看最大和最小的omega #############
@@ -333,6 +331,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     min_omega = None
     torch_max = 0
     torch_min = 100000
+    reg_params = model.reg_params
     for reg_param in reg_params:
         reg_param = reg_params[reg_param]
         param_omega = reg_param['omega']
@@ -404,11 +403,3 @@ def calculate_regulation(model, use_gpu):
         else:
             print("param in index {} not in reg_params".format(index))
     return regulation
-
-
-def count_number(n):
-    c = 0
-    while n != 0:
-        n = n / 10
-        c += 1
-    return c
