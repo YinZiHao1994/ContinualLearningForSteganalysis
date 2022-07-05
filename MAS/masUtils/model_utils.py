@@ -190,8 +190,8 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-def get_pre_model(use_gpu=False, reuse_model=False):
-    model_save_file_name = 'SRNET_model_boss_256_' + 'HILL' + '04.pth'
+def get_pre_model(dataset_enum, steganography_enum, use_gpu=False, reuse_model=False):
+    model_save_file_name = generate_model_save_file_name(dataset_enum, steganography_enum)
     model_save_path = os.path.join(MODEL_EXPORT_PATH, model_save_file_name)
     device = torch.device("cuda" if use_gpu else "cpu")
     model = SRNet().to(device)
@@ -209,7 +209,7 @@ def get_pre_model(use_gpu=False, reuse_model=False):
     return model
 
 
-def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
+def model_init(task_num, dataset_enum, steganography_enum, no_classes, use_gpu=False, reuse_model=True):
     """
     Inputs
     1) no_classes: The number of classes that the model is exposed to in the new task
@@ -220,6 +220,8 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
 
     Function: Initializes a model for the new task which the shared features and a classification head
     particular to the new task
+    :param steganography_enum:
+    :param dataset_enum:
     :param task_num:
     :param no_classes:
     :param use_gpu:
@@ -229,7 +231,7 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
 
     model = None
     if task_num == 1:
-        pre_model = get_pre_model(use_gpu, reuse_model)
+        pre_model = get_pre_model(dataset_enum, steganography_enum, use_gpu, reuse_model)
         model = SharedModel(pre_model)
 
         # # load the model
@@ -333,3 +335,8 @@ def save_performance(epoch_accuracy, task_no):
         input_to_txtfile = str(epoch_accuracy.item() if torch.is_tensor(epoch_accuracy) else epoch_accuracy)
         file.write(input_to_txtfile)
         file.close()
+
+
+def generate_model_save_file_name(dataset_enum, steganography_enum):
+    model_save_file_name = 'SRNET_model_' + dataset_enum.name + '_' + steganography_enum.name + '04.pth'
+    return model_save_file_name

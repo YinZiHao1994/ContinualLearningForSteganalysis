@@ -44,10 +44,6 @@ num_freeze_layers = 0
 lr = 0.01
 reg_lambda = 1
 
-train_dset_loaders = []
-valid_dset_loaders = []
-test_dset_loaders = []
-
 
 def set_logger(log_path, mode='a'):
     logger = logging.getLogger()
@@ -116,6 +112,9 @@ def main(dataset_steganography_list, reuse_model):
     init_console_log()
     device = torch.device("cuda" if use_gpu else "cpu")
 
+    train_dset_loaders = []
+    valid_dset_loaders = []
+    test_dset_loaders = []
     for dataset_steganography in dataset_steganography_list:
         dataset_enum = dataset_steganography['dataset']
         steganography_enum = dataset_steganography['steganography']
@@ -135,16 +134,19 @@ def main(dataset_steganography_list, reuse_model):
 
         # no_of_classes = dataloader_train.dataset.classes
         no_of_classes = 2
-
-        model = model_utils.model_init(task_num, no_of_classes, use_gpu, reuse_model)
+        dataset_steganography = dataset_steganography_list[task_num - 1]
+        dataset_enum = dataset_steganography['dataset']
+        steganography_enum = dataset_steganography['steganography']
+        model = model_utils.model_init(task_num, dataset_enum, steganography_enum, no_of_classes, use_gpu, reuse_model)
         # 从第二个任务开始，初始的lr每次缩小10倍
         # actual_lr = lr * pow(0.1, task_num - 1)
         actual_lr = lr
 
         print("Training the model on task {}, λ = {}, lr = {}".format(task_num, reg_lambda, actual_lr))
 
-        model = mas.mas_train(model, task_num, num_epochs, num_freeze_layers, no_of_classes, dataloader_train, dataloader_valid,
-                      actual_lr, reg_lambda=reg_lambda, use_awl=False, use_gpu=use_gpu)
+        model = mas.mas_train(model, task_num, num_epochs, num_freeze_layers, no_of_classes, dataloader_train,
+                              dataloader_valid,
+                              actual_lr, reg_lambda=reg_lambda, use_awl=False, use_gpu=use_gpu)
         mas.test_model_performance(task_num, model, dataloader_test)
 
     print("The training process on the {} tasks is completed".format(tasks_length))
