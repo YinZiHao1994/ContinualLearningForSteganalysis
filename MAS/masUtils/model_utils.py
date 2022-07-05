@@ -226,10 +226,6 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
     :param reuse_model:
 
     """
-    path_to_model = os.path.join(os.getcwd(), "models")
-
-    path = os.path.join(path_to_model, "shared_model.pth")
-    path_to_reg = os.path.join(path_to_model, "reg_params.pickle")
 
     model = None
     if task_num == 1:
@@ -248,27 +244,35 @@ def model_init(task_num, no_classes, use_gpu=False, reuse_model=True):
         #
         #     model.reg_params = reg_params
     else:
-        complete_model_path = os.path.join(path_to_model, 'model_in_task_{}'.format(task_num - 1) + '.pth.tar')
-        if not os.path.isfile(complete_model_path):
-            raise RuntimeError("保存的模型路径 {} 不存在".format(complete_model_path))
-        print("load model from {}".format(complete_model_path))
-        model = torch.load(complete_model_path)
+        model = load_model_from_file(task_num - 1)
 
-    # 针对 隐写分析的 SRNet 的情况，所有任务都是二分类，直接使用默认的fc
-    # initialize a new classification head
-    # classifier = model.tmodel.fc
-    # in_features = classifier.in_features
-    # # add the last classfication head to the shared model
-    # model.tmodel.fc = nn.Linear(in_features, no_classes)
+        # 针对 隐写分析的 SRNet 的情况，所有任务都是二分类，直接使用默认的fc
+        # initialize a new classification head
+        # classifier = model.tmodel.fc
+        # in_features = classifier.in_features
+        # # add the last classfication head to the shared model
+        # model.tmodel.fc = nn.Linear(in_features, no_classes)
 
-    # 从第二个任务开始，冻结最后的全连接层
-    # if task_num > 1:
-    #     for par in model.tmodel.fc.parameters():
-    #         par.requires_grad = False
+        # 从第二个任务开始，冻结最后的全连接层
+        # if task_num > 1:
+        #     for par in model.tmodel.fc.parameters():
+        #         par.requires_grad = False
     device = torch.device("cuda:0" if use_gpu else "cpu")
     model.train(True)
     model.to(device)
 
+    return model
+
+
+def load_model_from_file(task_num):
+    path_to_model = os.path.join(os.getcwd(), "models")
+    # path = os.path.join(path_to_model, "shared_model.pth")
+    # path_to_reg = os.path.join(path_to_model, "reg_params.pickle")
+    complete_model_path = os.path.join(path_to_model, 'model_in_task_{}'.format(task_num) + '.pth.tar')
+    if not os.path.isfile(complete_model_path):
+        raise RuntimeError("保存的模型路径 {} 不存在".format(complete_model_path))
+    print("load model from {}".format(complete_model_path))
+    model = torch.load(complete_model_path)
     return model
 
 
