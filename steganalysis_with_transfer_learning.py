@@ -168,9 +168,10 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-def train_model(model, target_dataset, target_steganography, train_loader=None, valid_loader=None):
+def train_model(model, target_dataset, target_steganography, train_loader=None, valid_loader=None, lr=0.01):
     """
     训练一种隐写分析算法模型。
+    :param lr:
     :param model:
     :param train_loader:
     :param valid_loader:
@@ -197,7 +198,7 @@ def train_model(model, target_dataset, target_steganography, train_loader=None, 
             (params_wd if param_item.dim() != 1 else params_rest).append(param_item)
     param_groups = [{'params': params_wd, 'weight_decay': WEIGHT_DECAY},
                     {'params': params_rest}]
-    optimizer = optim.SGD(param_groups, lr=LR, momentum=0.9, weight_decay=0.0005)
+    optimizer = optim.SGD(param_groups, lr=lr, momentum=0.9, weight_decay=0.0005)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STETSIZE, gamma=scheduler_gama)
 
     loss_history = []
@@ -295,7 +296,7 @@ def transfer_learning(dataset_steganography_list):
             # model = generate_model(device, dataset_enum, steganography_enum, True)
         # else:
         #     model = generate_model(device, dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
-        model = train_model(model, dataset_enum, steganography_enum, dataloader_train, dataloader_valid)
+        model = train_model(model, dataset_enum, steganography_enum, dataloader_train, dataloader_valid, LR)
         print('\nevaluate model in {}'.format(steganography_enum.name))
         accuracy, test_loss = evaluate(model, device, dataloader_test)
 
