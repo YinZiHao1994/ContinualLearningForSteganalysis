@@ -67,6 +67,7 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
 
         optimizer.zero_grad()
         output = model(data)  # FP
+        del data
         criterion = nn.CrossEntropyLoss()
         loss = criterion(output, label)
         # losses.update(loss.item(), data.size(0))
@@ -78,6 +79,7 @@ def train_implement(model, device, train_loader, optimizer, epoch, steganography
         total += data_num
         corrects = np.sum(prediction[1].cpu().numpy() == label.cpu().numpy())
         train_correct += corrects
+        del label
 
         if i % 10 == 0:
             diagram_data.iteration_number += 10
@@ -118,11 +120,12 @@ def evaluate(model, device, data_loader):
             label = label.reshape(-1)
             # shuffle
             idx = torch.randperm(shape[0])
-            # data = data[idx]
-            # label = label[idx]
+            data = data[idx]
+            label = label[idx]
 
             data, label = data.to(device), label.to(device)
             output = model(data)
+            del data
             criterion = nn.CrossEntropyLoss()
             loss = criterion(output, label)
             test_loss += loss.item()
@@ -131,6 +134,7 @@ def evaluate(model, device, data_loader):
             pred = output.max(1, keepdim=True)[1]
             total += label.size(0)
             correct += pred.eq(label.view_as(pred)).sum().item()
+            del label
 
     # accuracy = correct / (len(eval_loader.dataset) * 2)
     accuracy = 100. * correct / total
@@ -164,19 +168,17 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-def individual_learn(target_dataset, target_steganography, train_loader=None, valid_loader=None, test_loader=None,
-                     reuse_model=False, reused_steganography=None, reused_dataset=None):
+def train_model(model, target_dataset, target_steganography, train_loader=None, valid_loader=None,
+                test_loader=None):
     """
     训练一种隐写分析算法模型。
+    :param model:
     :param train_loader:
     :param valid_loader:
     :param test_loader:
     :param target_dataset: 所使用的数据集
     :param target_steganography:希望分析的隐写算法
-    :param reuse_model: 是否在之前已保存的模型基础上继续训练
-    :param reused_steganography: 之前已保存的模型所使用的隐写方法。如果 @reuse_model 参数是 False，此参数可以不传。如果 @reuse_model 参数是 True，
     此参数又为空，默认赋值为 @target_steganography 的值
-    :param reused_dataset: 之前已保存的模型所使用的数据集。如果 @reuse_model 参数是 False，此参数可以不传。
     """
     device = torch.device("cuda" if use_gpu else "cpu")
     # init_logger(target_dataset, target_steganography)
@@ -184,18 +186,45 @@ def individual_learn(target_dataset, target_steganography, train_loader=None, va
     if not os.path.exists(MODEL_EXPORT_PATH):
         os.makedirs(MODEL_EXPORT_PATH)
     # model_save_file_name = 'SRNET_model_params_boss_256_HILL04.pt'
-    model = generate_model(device, target_dataset, target_steganography, reuse_model, reused_steganography,
-                           reused_dataset)
     target_model_save_file_name = generate_model_save_file_name(target_dataset, target_steganography)
     target_model_save_path = os.path.join(MODEL_EXPORT_PATH, target_model_save_file_name)
     params_save_file_name = 'SRNET_model_params_' + target_dataset.name + '_' + target_steganography.name + '04.tar'
     params_save_file_path = os.path.join(MODEL_EXPORT_PATH, params_save_file_name)
 
-    model = train_model(device, model, params_save_file_path, train_loader, valid_loader, target_steganography)
+    params = model.parameters()
+    params_wd, params_rest = [], []
+    for param_item in params:
+        if param_item.requires_grad:
+            (params_wd if param_item.dim() != 1 else params_rest).append(param_item)
+    param_groups = [{'params': params_wd, 'weight_decay': WEIGHT_DECAY},
+                    {'params': params_rest}]
+    optimizer = optim.SGD(param_groups, lr=LR, momentum=0.9, weight_decay=0.0005)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STETSIZE, gamma=scheduler_gama)
+
+    loss_history = []
+    acc_history = []
+    counter = []
+    iteration_number = 0
+    diagram_data = DiagramData(loss_history, acc_history, counter, iteration_number)
+    for epoch in range(1, EPOCHS + 1):
+        # scheduler.step()
+        model = train_implement(model, device, train_loader, optimizer, epoch, target_steganography, diagram_data)
+        if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
+            print('Evaluate in epoch {}'.format(epoch))
+            evaluate(model, device, valid_loader)
+        print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
+        scheduler.step()
+
+    all_state = {
+        'original_state': model.state_dict(),
+        'optimizer_state': optimizer.state_dict(),
+    }
+    torch.save(all_state, params_save_file_path)
     torch.save(model, target_model_save_path)
 
     print('\nTest model {}'.format(target_steganography.name))
-    return evaluate(model, device, test_loader)
+    accuracy, test_loss = evaluate(model, device, test_loader)
+    return model, accuracy, test_loss
 
 
 def generate_model_save_file_name(dataset_enum, steganography_enum):
@@ -203,7 +232,18 @@ def generate_model_save_file_name(dataset_enum, steganography_enum):
     return model_save_file_name
 
 
-def generate_model(device, target_dataset, target_steganography, reuse_model, reused_steganography, reused_dataset):
+def generate_model(device, target_dataset, target_steganography, reuse_model, reused_steganography=None,
+                   reused_dataset=None):
+    """
+    :param device:
+    :param target_dataset:
+    :param target_steganography:
+    :param reuse_model: 是否在之前已保存的模型基础上继续训练
+    :param reused_steganography: 之前已保存的模型所使用的隐写方法。如果 @reuse_model 参数是 False，此参数可以不传。如果 @reuse_model 参数是 True，
+    此参数又为空，默认赋值为 @target_steganography 的值
+    :param reused_dataset: 之前已保存的模型所使用的数据集。如果 @reuse_model 参数是 False，此参数可以不传。
+    :return:
+    """
     model = SRNet().to(device)
     model.apply(init_weights)
     # 加载复用之前已保存的训练完的模型
@@ -240,6 +280,7 @@ def transfer_learning(dataset_steganography_list):
         train_dset_loaders.append(train_loader)
         valid_dset_loaders.append(valid_loader)
         test_dset_loaders.append(test_loader)
+    model = None
     for index, dataset_steganography in enumerate(dataset_steganography_list):
         pre_dataset = None
         pre_steganography = None
@@ -252,10 +293,13 @@ def transfer_learning(dataset_steganography_list):
         dataloader_train = train_dset_loaders[index]
         dataloader_valid = valid_dset_loaders[index]
         dataloader_test = test_dset_loaders[index]
-        accuracy, test_loss = individual_learn(dataset_enum, steganography_enum,
-                                               dataloader_train, dataloader_valid, dataloader_test,
-                                               reuse_model=True, reused_steganography=pre_steganography,
-                                               reused_dataset=pre_dataset)
+        if index == 0:
+            model = generate_model(device, dataset_enum, steganography_enum, False)
+            # model = generate_model(device, dataset_enum, steganography_enum, True)
+        # else:
+        #     model = generate_model(device, dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
+        model, accuracy, test_loss = train_model(model, dataset_enum, steganography_enum, dataloader_train,
+                                                 dataloader_valid, dataloader_test)
         result_record.append(('[' + dataset_enum.name + '-' + steganography_enum.name + ']', accuracy, test_loss))
 
     # 释放显存
@@ -298,39 +342,6 @@ class DiagramData:
         self.acc_history = acc_history
         self.counter = counter
         self.iteration_number = iteration_number
-
-
-def train_model(device, model, params_save_file_path, train_loader, valid_loader, steganography):
-    params = model.parameters()
-    params_wd, params_rest = [], []
-    for param_item in params:
-        if param_item.requires_grad:
-            (params_wd if param_item.dim() != 1 else params_rest).append(param_item)
-    param_groups = [{'params': params_wd, 'weight_decay': WEIGHT_DECAY},
-                    {'params': params_rest}]
-    optimizer = optim.SGD(param_groups, lr=LR, momentum=0.9, weight_decay=0.0005)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=STETSIZE, gamma=scheduler_gama)
-
-    loss_history = []
-    acc_history = []
-    counter = []
-    iteration_number = 0
-    diagram_data = DiagramData(loss_history, acc_history, counter, iteration_number)
-    for epoch in range(1, EPOCHS + 1):
-        # scheduler.step()
-        model = train_implement(model, device, train_loader, optimizer, epoch, steganography, diagram_data)
-        if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
-            print('Evaluate in epoch {}'.format(epoch))
-            evaluate(model, device, valid_loader)
-        print('current lr: ', optimizer.state_dict()['param_groups'][0]['lr'])
-        scheduler.step()
-
-    all_state = {
-        'original_state': model.state_dict(),
-        'optimizer_state': optimizer.state_dict(),
-    }
-    torch.save(all_state, params_save_file_path)
-    return model
 
 
 def init_logger(dataset_enum, steganography_enum):

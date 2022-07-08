@@ -191,7 +191,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
                     if index % 100 == 0:
                         print("loss = {}".format(loss))
                 else:
-                    regulation = calculate_regulation(model, use_gpu)
+                    regulation = calculate_regulation(model, index, epoch, use_gpu)
                     if use_awl:
                         loss = automatic_weighted_loss(origin_loss, regulation)
                     else:
@@ -357,7 +357,7 @@ def train_model(model, task_no, num_classes, model_criterion, dataloader_train, 
     return model
 
 
-def calculate_regulation(model, use_gpu):
+def calculate_regulation(model, batch_index, epoch, use_gpu):
     # weight_params = model.weight_params
     # used_omega_weight = weight_params['used_omega_weight']
     # max_omega_weight = weight_params['max_omega_weight']
@@ -402,6 +402,9 @@ def calculate_regulation(model, use_gpu):
             param_diff = curr_param_value_copy - init_val
             mul = torch.mul(param_diff ** 2, used_omega)
             mul_sum = mul.sum()
+            if epoch < 5 or epoch % 20 == 0:
+                if batch_index % 40 == 0:
+                    print("network param in index {} 's mul_sum is {}".format(index, mul_sum))
             regulation += reg_lambda * mul_sum
         else:
             print("param in index {} not in reg_params".format(index))
