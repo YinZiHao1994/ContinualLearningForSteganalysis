@@ -168,9 +168,10 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-def train_model(model, target_dataset, target_steganography, train_loader=None, valid_loader=None, lr=0.01):
+def train_model(model, target_dataset, target_steganography, train_loader, valid_loader, epochs, lr=0.01):
     """
     训练一种隐写分析算法模型。
+    :param epochs:
     :param lr:
     :param model:
     :param train_loader:
@@ -206,7 +207,7 @@ def train_model(model, target_dataset, target_steganography, train_loader=None, 
     counter = []
     iteration_number = 0
     diagram_data = DiagramData(loss_history, acc_history, counter, iteration_number)
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, epochs + 1):
         # scheduler.step()
         model = train_implement(model, device, train_loader, optimizer, epoch, target_steganography, diagram_data)
         if epoch % EVAL_PRINT_FREQUENCY == 0 or epoch == EPOCHS:
@@ -296,7 +297,7 @@ def transfer_learning(dataset_steganography_list):
             # model = generate_model(device, dataset_enum, steganography_enum, True)
         # else:
         #     model = generate_model(device, dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
-        model = train_model(model, dataset_enum, steganography_enum, dataloader_train, dataloader_valid, LR)
+        model = train_model(model, dataset_enum, steganography_enum, dataloader_train, dataloader_valid, EPOCHS, LR)
         print('\nevaluate model in {}'.format(steganography_enum.name))
         accuracy, test_loss = evaluate(model, device, dataloader_test)
 
