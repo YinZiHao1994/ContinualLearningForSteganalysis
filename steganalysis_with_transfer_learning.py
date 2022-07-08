@@ -168,14 +168,12 @@ def init_weights(module):
         nn.init.constant_(module.bias.data, val=0)
 
 
-def train_model(model, target_dataset, target_steganography, train_loader=None, valid_loader=None,
-                test_loader=None):
+def train_model(model, target_dataset, target_steganography, train_loader=None, valid_loader=None):
     """
     训练一种隐写分析算法模型。
     :param model:
     :param train_loader:
     :param valid_loader:
-    :param test_loader:
     :param target_dataset: 所使用的数据集
     :param target_steganography:希望分析的隐写算法
     此参数又为空，默认赋值为 @target_steganography 的值
@@ -191,6 +189,7 @@ def train_model(model, target_dataset, target_steganography, train_loader=None, 
     params_save_file_name = 'SRNET_model_params_' + target_dataset.name + '_' + target_steganography.name + '04.tar'
     params_save_file_path = os.path.join(MODEL_EXPORT_PATH, params_save_file_name)
 
+    model.train()
     params = model.parameters()
     params_wd, params_rest = [], []
     for param_item in params:
@@ -222,9 +221,7 @@ def train_model(model, target_dataset, target_steganography, train_loader=None, 
     torch.save(all_state, params_save_file_path)
     torch.save(model, target_model_save_path)
 
-    print('\nTest model {}'.format(target_steganography.name))
-    accuracy, test_loss = evaluate(model, device, test_loader)
-    return model, accuracy, test_loss
+    return model
 
 
 def generate_model_save_file_name(dataset_enum, steganography_enum):
@@ -298,8 +295,10 @@ def transfer_learning(dataset_steganography_list):
             # model = generate_model(device, dataset_enum, steganography_enum, True)
         # else:
         #     model = generate_model(device, dataset_enum, steganography_enum, True, pre_steganography, pre_dataset)
-        model, accuracy, test_loss = train_model(model, dataset_enum, steganography_enum, dataloader_train,
-                                                 dataloader_valid, dataloader_test)
+        model = train_model(model, dataset_enum, steganography_enum, dataloader_train, dataloader_valid)
+        print('\nevaluate model in {}'.format(steganography_enum.name))
+        accuracy, test_loss = evaluate(model, device, dataloader_test)
+
         result_record.append(('[' + dataset_enum.name + '-' + steganography_enum.name + ']', accuracy, test_loss))
 
     # 释放显存
